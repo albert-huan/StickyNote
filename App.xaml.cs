@@ -144,17 +144,17 @@ namespace StickyNote
 
         private void ShowAllWindows()
         {
-            // 已打开的显示并激活
-            foreach (Window w in this.Windows)
+            // 已打开的MainWindow显示并激活
+            foreach (MainWindow w in this.Windows.OfType<MainWindow>())
             {
                 if (w.Visibility != Visibility.Visible) w.Show();
                 w.Activate();
             }
-            // 未打开的根据保存记录补齐
+            // 未打开的根据保存记录补齐，跳过内容为空的便签
             var openIds = this.Windows.OfType<MainWindow>().Select(m => m.NoteId).ToHashSet();
             foreach (var data in NoteManager.GetAll())
             {
-                if (!openIds.Contains(data.Id))
+                if (!openIds.Contains(data.Id) && !string.IsNullOrWhiteSpace(data.Content))
                 {
                     var win = new MainWindow(data);
                     win.Show();

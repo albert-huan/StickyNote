@@ -585,7 +585,7 @@ namespace StickyNote
 
     public static class NoteManager
     {
-        private static string FilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "StickyNotes_Data.json");
+        private static string FilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "StickyNote", "StickyNotes_Data.json");
         private static List<NoteData> _notes = new List<NoteData>();
         private static NoteData? _lastDeleted;
 
@@ -610,6 +610,13 @@ namespace StickyNote
         {
             try
             {
+                // 确保目录存在
+                string directory = Path.GetDirectoryName(FilePath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+                
                 string json = JsonSerializer.Serialize(_notes);
                 var temp = FilePath + ".tmp";
                 var bak = FilePath + ".bak";
