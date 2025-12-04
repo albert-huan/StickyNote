@@ -214,13 +214,45 @@ namespace StickyNote
             if (currentParagraph == null)
             {
                 // 如果没有段落，创建一个新段落
-                currentParagraph = new Paragraph();
+                currentParagraph = new Paragraph(todoRun);
                 doc.Blocks.Add(currentParagraph);
-                caretPos = currentParagraph.ContentStart;
+                // 将光标移动到代办事项符号后面
+                rtbContent.CaretPosition = todoRun.ContentEnd;
+                return;
             }
 
-            // 在光标位置插入代办事项符号
-            currentParagraph.Inlines.InsertAfter(caretPos.GetInsertionPosition(LogicalDirection.Forward).Parent as Inline, todoRun);
+            // 检查当前段落是否已经有代办事项符号
+            bool hasTodo = false;
+            TextPointer start = currentParagraph.ContentStart;
+            while (start != null && start.CompareTo(currentParagraph.ContentEnd) < 0)
+            {
+                if (start.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
+                {
+                    string text = start.GetTextInRun(LogicalDirection.Forward);
+                    if (text.Contains("☐") || text.Contains("☑"))
+                    {
+                        hasTodo = true;
+                        break;
+                    }
+                    start = start.GetPositionAtOffset(text.Length, LogicalDirection.Forward);
+                }
+                else
+                {
+                    start = start.GetNextContextPosition(LogicalDirection.Forward);
+                }
+            }
+
+            if (!hasTodo)
+            {
+                // 如果当前段落没有代办事项符号，在段落开头插入
+                currentParagraph.Inlines.InsertBefore(currentParagraph.Inlines.FirstInline, todoRun);
+            }
+            else
+            {
+                // 如果当前段落已有代办事项符号，在当前光标位置创建新段落并插入
+                Paragraph newParagraph = new Paragraph(todoRun);
+                doc.Blocks.InsertAfter(currentParagraph, newParagraph);
+            }
 
             // 将光标移动到代办事项符号后面
             rtbContent.CaretPosition = todoRun.ContentEnd;
