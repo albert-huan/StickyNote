@@ -204,7 +204,8 @@
                          Foreground="#3E2723"
                          Padding="10,2,10,10"
                          VerticalScrollBarVisibility="Hidden"
-                         TextChanged="RtbContent_TextChanged">
+                         TextChanged="RtbContent_TextChanged"
+                         PreviewMouseLeftButtonUp="RtbContent_PreviewMouseLeftButtonUp">
                 <RichTextBox.Resources>
                     <Style TargetType="Paragraph">
                         <Setter Property="LineHeight" Value="30"/>
@@ -247,6 +248,9 @@
                 </Button>
                 <Button Style="{StaticResource IconBtnStyle}" Width="26" Click="AlignRight_Click" ToolTip="右对齐">
                     <Path Data="M0,3 L14,3 M4,7 L14,7 M0,11 L14,11" Stroke="#5D4037" StrokeThickness="2"/>
+                </Button>
+                <Button Style="{StaticResource IconBtnStyle}" Width="26" Click="AddTodo_Click" ToolTip="添加代办事项">
+                    <Path Data="M0,0 L14,0 L14,14 L0,14 Z" Stroke="#5D4037" StrokeThickness="2" Fill="Transparent"/>
                 </Button>
             </StackPanel>
 

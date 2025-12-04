@@ -189,6 +189,105 @@ namespace StickyNote
             SaveState();
         }
 
+        private void AddTodo_Click(object sender, RoutedEventArgs e)
+        {
+            // 在当前光标位置插入未完成的代办事项符号
+            InsertTodoAtCurrentPosition(false);
+        }
+
+        private void InsertTodoAtCurrentPosition(bool isCompleted)
+        {
+            // 获取当前文档
+            var doc = rtbContent.Document;
+            if (doc == null) return;
+
+            // 获取当前光标位置
+            TextPointer caretPos = rtbContent.CaretPosition;
+            if (caretPos == null) return;
+
+            // 创建一个新的Run，包含代办事项符号
+            string todoSymbol = isCompleted ? "☑ " : "☐ ";
+            Run todoRun = new Run(todoSymbol);
+
+            // 获取当前段落
+            Paragraph currentParagraph = caretPos.Paragraph;
+            if (currentParagraph == null)
+            {
+                // 如果没有段落，创建一个新段落
+                currentParagraph = new Paragraph();
+                doc.Blocks.Add(currentParagraph);
+                caretPos = currentParagraph.ContentStart;
+            }
+
+            // 在光标位置插入代办事项符号
+            currentParagraph.Inlines.InsertAfter(caretPos.GetInsertionPosition(LogicalDirection.Forward).Parent as Inline, todoRun);
+
+            // 将光标移动到代办事项符号后面
+            rtbContent.CaretPosition = todoRun.ContentEnd;
+        }
+
+        // 处理RichTextBox的点击事件，用于切换代办事项状态
+        private void RtbContent_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            // 获取点击位置
+            System.Windows.Point clickPoint = e.GetPosition(rtbContent);
+
+            // 将点击位置转换为TextPointer
+            TextPointer textPosition = rtbContent.GetPositionFromPoint(clickPoint, true);
+            if (textPosition == null) return;
+
+            // 检查点击位置是否在代办事项符号上
+            TextPointer start = textPosition.GetInsertionPosition(LogicalDirection.Backward);
+            TextPointer end = textPosition.GetInsertionPosition(LogicalDirection.Forward);
+
+            // 扩大搜索范围，确保能找到代办事项符号
+            start = start.GetNextInsertionPosition(LogicalDirection.Backward) ?? start;
+            end = end.GetNextInsertionPosition(LogicalDirection.Forward) ?? end;
+
+            // 获取点击位置周围的文本
+            TextRange range = new TextRange(start, end);
+            string text = range.Text;
+
+            // 检查是否包含代办事项符号
+            int uncheckedIndex = text.IndexOf("☐");
+            int checkedIndex = text.IndexOf("☑");
+
+            if (uncheckedIndex >= 0)
+            {
+                // 将未完成的代办事项切换为已完成
+                ReplaceTodoSymbol(start, "☐", "☑");
+            }
+            else if (checkedIndex >= 0)
+            {
+                // 将已完成的代办事项切换为未完成
+                ReplaceTodoSymbol(start, "☑", "☐");
+            }
+        }
+
+        private void ReplaceTodoSymbol(TextPointer start, string oldSymbol, string newSymbol)
+        {
+            // 在文档中查找并替换代办事项符号
+            TextPointer current = start;
+            while (current != null && current.CompareTo(rtbContent.Document.ContentEnd) < 0)
+            {
+                if (current.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
+                {
+                    string textRun = current.GetTextInRun(LogicalDirection.Forward);
+                    int index = textRun.IndexOf(oldSymbol);
+                    if (index >= 0)
+                    {
+                        // 找到符号，替换它
+                        TextPointer symbolStart = current.GetPositionAtOffset(index);
+                        TextPointer symbolEnd = symbolStart.GetPositionAtOffset(oldSymbol.Length);
+                        TextRange symbolRange = new TextRange(symbolStart, symbolEnd);
+                        symbolRange.Text = newSymbol;
+                        break;
+                    }
+                }
+                current = current.GetNextContextPosition(LogicalDirection.Forward);
+            }
+        }
+
         // 右键菜单：改颜色
         private void ChangeColor_Click(object sender, RoutedEventArgs e)
         {
