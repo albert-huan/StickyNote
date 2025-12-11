@@ -13,21 +13,17 @@ namespace StickyNote
         private HotkeyWindow _hotkeyWin;
         private void Application_Startup(object sender, StartupEventArgs e)
         {
-            // 1. 加载所有保存的便签
-            var notes = NoteManager.LoadNotes();
-
-            if (notes == null || notes.Count == 0)
+            try
             {
+                // 创建主窗口，它会自动加载所有便签作为标签
                 var w = new MainWindow();
                 w.Show();
                 w.Activate();
             }
-            else
+            catch (Exception ex)
             {
-                // 启动时仅恢复一个窗口，避免大量窗口弹出
-                var window = new MainWindow(notes[0]);
-                window.Show();
-                window.Activate();
+                System.Windows.MessageBox.Show($"启动错误: {ex.Message}\n{ex.StackTrace}");
+                return;
             }
 
             _tray = new Forms.NotifyIcon();
@@ -63,7 +59,22 @@ namespace StickyNote
             var showItem = new Forms.ToolStripMenuItem("显示全部");
             var hideItem = new Forms.ToolStripMenuItem("隐藏全部");
             var exitItem = new Forms.ToolStripMenuItem("退出");
-            newItem.Click += (s, ev) => { this.Dispatcher.Invoke(() => new MainWindow().Show()); };
+            newItem.Click += (s, ev) => { 
+                this.Dispatcher.Invoke(() => {
+                    var mainWin = this.Windows.OfType<MainWindow>().FirstOrDefault();
+                    if (mainWin != null)
+                    {
+                        mainWin.Show();
+                        mainWin.Activate();
+                        // 触发新建便签
+                        mainWin.CreateNewTab();
+                    }
+                    else
+                    {
+                        new MainWindow().Show();
+                    }
+                }); 
+            };
             showItem.Click += (s, ev) => { this.Dispatcher.Invoke(ShowAllWindows); };
             hideItem.Click += (s, ev) => { this.Dispatcher.Invoke(HideAllWindows); };
             exitItem.Click += (s, ev) => { this.Dispatcher.Invoke(() => Shutdown()); };
@@ -118,12 +129,13 @@ namespace StickyNote
                 {
                     if (NoteManager.RestoreLastDeleted())
                     {
-                        var data = NoteManager.GetAll().LastOrDefault();
-                        if (data != null)
+                        var mainWin = this.Windows.OfType<MainWindow>().FirstOrDefault();
+                        if (mainWin != null)
                         {
-                            var w = new MainWindow(data);
-                            w.Show();
-                            w.Activate();
+                            mainWin.Show();
+                            mainWin.Activate();
+                            // 重新加载标签以显示恢复的便签
+                            mainWin.RefreshTabs();
                         }
                     }
                 });
@@ -144,21 +156,11 @@ namespace StickyNote
 
         private void ShowAllWindows()
         {
-            // 已打开的MainWindow显示并激活
+            // 显示主窗口
             foreach (MainWindow w in this.Windows.OfType<MainWindow>())
             {
                 if (w.Visibility != Visibility.Visible) w.Show();
                 w.Activate();
-            }
-            // 未打开的根据保存记录补齐，跳过内容为空的便签
-            var openIds = this.Windows.OfType<MainWindow>().Select(m => m.NoteId).ToHashSet();
-            foreach (var data in NoteManager.GetAll())
-            {
-                if (!openIds.Contains(data.Id) && !string.IsNullOrWhiteSpace(data.Content))
-                {
-                    var win = new MainWindow(data);
-                    win.Show();
-                }
             }
         }
 
@@ -242,7 +244,19 @@ namespace StickyNote
             protected override void WndProc(ref Forms.Message m)
             {
                 if (m.Msg == WM_HOTKEY && m.WParam == (IntPtr)1)
-                    _app.Dispatcher.Invoke(() => new MainWindow().Show());
+                    _app.Dispatcher.Invoke(() => {
+                        var mainWin = _app.Windows.OfType<MainWindow>().FirstOrDefault();
+                        if (mainWin != null)
+                        {
+                            mainWin.Show();
+                            mainWin.Activate();
+                            mainWin.CreateNewTab();
+                        }
+                        else
+                        {
+                            new MainWindow().Show();
+                        }
+                    });
                 if (m.Msg == WM_HOTKEY && m.WParam == (IntPtr)2)
                     _app.Dispatcher.Invoke(() => NoteSearch.Show());
                 base.WndProc(ref m);

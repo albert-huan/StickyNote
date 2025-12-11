@@ -10,13 +10,60 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using System.Windows.Documents;
 using System.Windows.Media.Animation;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 
 namespace StickyNote
 {
+    // 标签项数据模型
+    public class TabItem : INotifyPropertyChanged
+    {
+        private string _title = "新便签";
+        private string _preview = string.Empty;
+
+        public string Id { get; set; } = string.Empty;
+        
+        public string Title 
+        { 
+            get => _title;
+            set
+            {
+                if (_title != value)
+                {
+                    _title = value;
+                    OnPropertyChanged(nameof(Title));
+                }
+            }
+        }
+        
+        public string Preview 
+        { 
+            get => _preview;
+            set
+            {
+                if (_preview != value)
+                {
+                    _preview = value;
+                    OnPropertyChanged(nameof(Preview));
+                }
+            }
+        }
+        
+        public NoteData NoteData { get; set; } = null!;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
     public partial class MainWindow : Window
     {
-        // 当前便签的数据实体
-        private NoteData _noteData;
+        // 标签管理
+        private ObservableCollection<TabItem> _tabs = new ObservableCollection<TabItem>();
+        private TabItem? _currentTab;
         private bool _isInitializing = true;
         private DispatcherTimer _saveTimer;
         private bool _isSnapping = false;
@@ -27,110 +74,225 @@ namespace StickyNote
         public static readonly RoutedUICommand CloseCmd = new RoutedUICommand("Close", "Close", typeof(MainWindow));
         public static readonly RoutedUICommand ExportCmd = new RoutedUICommand("Export", "Export", typeof(MainWindow));
         public static readonly RoutedUICommand InsertSeparatorCmd = new RoutedUICommand("Separator", "Separator", typeof(MainWindow));
-        public string NoteId => _noteData.Id;
+        public string NoteId => _currentTab?.NoteData?.Id ?? string.Empty;
 
         // 构造函数：支持传入已有的数据
         public MainWindow(NoteData? data = null)
         {
-            InitializeComponent();
-
             try
             {
-                var icoPath = System.IO.Path.Combine(AppContext.BaseDirectory, "app.ico");
-                if (System.IO.File.Exists(icoPath))
+                InitializeComponent();
+
+                try
                 {
-                    using var s = System.IO.File.OpenRead(icoPath);
-                    var decoder = new System.Windows.Media.Imaging.IconBitmapDecoder(s, System.Windows.Media.Imaging.BitmapCreateOptions.None, System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
-                    this.Icon = decoder.Frames[0];
+                    var icoPath = System.IO.Path.Combine(AppContext.BaseDirectory, "app.ico");
+                    if (System.IO.File.Exists(icoPath))
+                    {
+                        using var s = System.IO.File.OpenRead(icoPath);
+                        var decoder = new System.Windows.Media.Imaging.IconBitmapDecoder(s, System.Windows.Media.Imaging.BitmapCreateOptions.None, System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+                        this.Icon = decoder.Frames[0];
+                    }
+                    else
+                    {
+                        var exeIcon = System.Drawing.Icon.ExtractAssociatedIcon(System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName!);
+                        if (exeIcon != null)
+                        {
+                            var src = System.Windows.Interop.Imaging.CreateBitmapSourceFromHIcon(exeIcon.Handle, System.Windows.Int32Rect.Empty, System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
+                            this.Icon = src;
+                        }
+                    }
+                }
+                catch { }
+
+                // 初始化标签列表
+                TabList.ItemsSource = _tabs;
+
+                // 加载所有便签作为标签
+                LoadAllNotesAsTabs();
+
+                // 如果没有标签，创建一个新的
+                if (_tabs.Count == 0)
+                {
+                    CreateNewTab();
                 }
                 else
                 {
-                    var exeIcon = System.Drawing.Icon.ExtractAssociatedIcon(System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName!);
-                    if (exeIcon != null)
+                    // 选择第一个标签
+                    TabList.SelectedIndex = 0;
+                }
+
+                _isInitializing = false;
+
+                _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+                _saveTimer.Tick += (s, e) => { _saveTimer.Stop(); NoteManager.SaveNotes(); };
+                _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
+                _toastTimer.Tick += (s, e) => { _toastTimer.Stop(); StatusText.Opacity = 0; };
+
+                this.CommandBindings.Add(new CommandBinding(NewCmd, (s, e) => NewNote_Click(s, e)));
+                this.CommandBindings.Add(new CommandBinding(DeleteCmd, (s, e) => DeleteNote_Click(s, e)));
+                this.CommandBindings.Add(new CommandBinding(ToggleTopmostCmd, (s, e) => { btnTopmost.IsChecked = !(btnTopmost.IsChecked == true); PinButton_Click(s, e); }));
+                this.CommandBindings.Add(new CommandBinding(CloseCmd, (s, e) => CloseButton_Click(s, e)));
+                this.CommandBindings.Add(new CommandBinding(ExportCmd, (s, e) => Export_Click(s, e)));
+                this.CommandBindings.Add(new CommandBinding(InsertSeparatorCmd, (s, e) => InsertSeparator()));
+
+                this.SizeChanged += (s, e) => SaveState();
+                this.LocationChanged += (s, e) => { SnapToEdges(); SaveState(); };
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"初始化错误: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        // 加载所有便签作为标签
+        private void LoadAllNotesAsTabs()
+        {
+            var notes = NoteManager.LoadNotes();
+            foreach (var note in notes)
+            {
+                if (string.IsNullOrEmpty(note.Title))
+                {
+                    note.Title = GetNoteTitle(note.Content);
+                }
+
+                var tab = new TabItem
+                {
+                    Id = note.Id,
+                    Title = note.Title,
+                    Preview = GetNotePreview(note.Content),
+                    NoteData = note
+                };
+                _tabs.Add(tab);
+            }
+        }
+
+        // 创建新标签
+        public void CreateNewTab()
+        {
+            var noteData = new NoteData
+            {
+                Id = Guid.NewGuid().ToString(),
+                Title = "新便签",
+                Content = "",
+                Width = this.Width,
+                Height = this.Height,
+                Left = this.Left,
+                Top = this.Top,
+                ColorHex = "#E8D096",
+                Opacity = 1.0,
+                IsTopmost = false,
+                FontSize = 16,
+                IsBold = false,
+                IsItalic = false,
+                IsUnderline = false,
+                IsStrikethrough = false,
+                Alignment = TextAlignment.Left.ToString()
+            };
+
+            var tab = new TabItem
+            {
+                Id = noteData.Id,
+                Title = "新便签",
+                Preview = "",
+                NoteData = noteData
+            };
+
+            _tabs.Add(tab);
+            NoteManager.AddNote(noteData);
+            TabList.SelectedItem = tab;
+        }
+
+        // 刷新标签列表
+        public void RefreshTabs()
+        {
+            _tabs.Clear();
+            LoadAllNotesAsTabs();
+            if (_tabs.Count > 0)
+            {
+                TabList.SelectedIndex = _tabs.Count - 1; // 选择最后一个（刚恢复的）
+            }
+        }
+
+        // 获取便签标题
+        private string GetNoteTitle(string content)
+        {
+            if (string.IsNullOrEmpty(content)) return "新便签";
+            
+            string text = content;
+            if (content.TrimStart().StartsWith("<FlowDocument"))
+            {
+                try
+                {
+                    var doc = System.Windows.Markup.XamlReader.Parse(content) as FlowDocument;
+                    if (doc != null)
                     {
-                        var src = System.Windows.Interop.Imaging.CreateBitmapSourceFromHIcon(exeIcon.Handle, System.Windows.Int32Rect.Empty, System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
-                        this.Icon = src;
+                        var range = new TextRange(doc.ContentStart, doc.ContentEnd);
+                        text = range.Text;
                     }
                 }
+                catch { }
             }
-            catch { }
 
-            if (data == null)
+            var firstLine = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "新便签";
+            if (firstLine.Length > 15) firstLine = firstLine.Substring(0, 15) + "...";
+            return firstLine;
+        }
+
+        // 获取便签预览
+        private string GetNotePreview(string content)
+        {
+            if (string.IsNullOrEmpty(content)) return "";
+            
+            string text = content;
+            if (content.TrimStart().StartsWith("<FlowDocument"))
             {
-                _noteData = new NoteData
+                try
                 {
-                    Id = Guid.NewGuid().ToString(),
-                    Content = "",
-                    Width = 300,
-                    Height = 300,
-                    Left = SystemParameters.WorkArea.Width / 2 - 150,
-                    Top = SystemParameters.WorkArea.Height / 2 - 150,
-                    ColorHex = "#E8D096",
-                    Opacity = 1.0,
-                    IsTopmost = false,
-                    FontSize = 16,
-                    IsBold = false,
-                    IsItalic = false,
-                    IsUnderline = false,
-                    IsStrikethrough = false,
-                    Alignment = TextAlignment.Left.ToString()
-                };
-                NoteManager.AddNote(_noteData);
-            }
-            else
-            {
-                // 加载已有便签
-                _noteData = data;
+                    var doc = System.Windows.Markup.XamlReader.Parse(content) as FlowDocument;
+                    if (doc != null)
+                    {
+                        var range = new TextRange(doc.ContentStart, doc.ContentEnd);
+                        text = range.Text;
+                    }
+                }
+                catch { }
             }
 
-            // 应用数据到界面
-            ApplyDataToUI();
-            _isInitializing = false;
-
-            _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
-            _saveTimer.Tick += (s, e) => { _saveTimer.Stop(); NoteManager.SaveNotes(); };
-            _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
-            _toastTimer.Tick += (s, e) => { _toastTimer.Stop(); StatusText.Opacity = 0; };
-
-            this.CommandBindings.Add(new CommandBinding(NewCmd, (s, e) => NewNote_Click(s, e)));
-            this.CommandBindings.Add(new CommandBinding(DeleteCmd, (s, e) => DeleteNote_Click(s, e)));
-            this.CommandBindings.Add(new CommandBinding(ToggleTopmostCmd, (s, e) => { btnTopmost.IsChecked = !(btnTopmost.IsChecked == true); PinButton_Click(s, e); }));
-            this.CommandBindings.Add(new CommandBinding(CloseCmd, (s, e) => CloseButton_Click(s, e)));
-            this.CommandBindings.Add(new CommandBinding(ExportCmd, (s, e) => Export_Click(s, e)));
-            this.CommandBindings.Add(new CommandBinding(InsertSeparatorCmd, (s, e) => InsertSeparator()));
-
-            this.SizeChanged += (s, e) => SaveState();
-            this.LocationChanged += (s, e) => { SnapToEdges(); SaveState(); };
+            // 移除第一行作为标题，剩下的作为预览
+            var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length <= 1) return "";
+            
+            var preview = string.Join(" ", lines.Skip(1));
+            if (preview.Length > 50) preview = preview.Substring(0, 50) + "...";
+            return preview;
         }
 
         // 将数据渲染到 UI
         private void ApplyDataToUI()
         {
-            this.Width = _noteData.Width;
-            this.Height = _noteData.Height;
-            this.Left = _noteData.Left;
-            this.Top = _noteData.Top;
-            this.Topmost = _noteData.IsTopmost;
-            this.Opacity = _noteData.Opacity;
-            SetDocumentFromContent(_noteData.Content);
-            btnTopmost.IsChecked = _noteData.IsTopmost;
+            if (_currentTab?.NoteData == null) return;
+
+            var noteData = _currentTab.NoteData;
+            this.Topmost = noteData.IsTopmost;
+            this.Opacity = noteData.Opacity;
+            SetDocumentFromContent(noteData.Content);
+            btnTopmost.IsChecked = noteData.IsTopmost;
 
             try
             {
-                MainBorder.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(_noteData.ColorHex));
+                MainBorder.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(noteData.ColorHex));
             }
             catch { }
 
-            EnsureOnScreen(this.Width, this.Height);
             UpdateShadowForDpi();
-            UpdateForegroundForBackground(_noteData.ColorHex);
-            UpdatePaperBrush(_noteData.ColorHex);
-            if (_noteData.FontSize > 0) rtbContent.FontSize = _noteData.FontSize;
-            rtbContent.FontWeight = _noteData.IsBold ? FontWeights.Bold : FontWeights.Normal;
-            rtbContent.FontStyle = _noteData.IsItalic ? FontStyles.Italic : FontStyles.Normal;
-            if (!string.IsNullOrEmpty(_noteData.Alignment))
+            UpdateForegroundForBackground(noteData.ColorHex);
+            UpdatePaperBrush(noteData.ColorHex);
+            if (noteData.FontSize > 0) rtbContent.FontSize = noteData.FontSize;
+            rtbContent.FontWeight = noteData.IsBold ? FontWeights.Bold : FontWeights.Normal;
+            rtbContent.FontStyle = noteData.IsItalic ? FontStyles.Italic : FontStyles.Normal;
+            if (!string.IsNullOrEmpty(noteData.Alignment))
             {
-                if (Enum.TryParse<TextAlignment>(_noteData.Alignment, out var a))
+                if (Enum.TryParse<TextAlignment>(noteData.Alignment, out var a))
                     rtbContent.Document.TextAlignment = a;
             }
         }
@@ -138,18 +300,23 @@ namespace StickyNote
         // 保存当前状态
         private void SaveState()
         {
-            if (_isInitializing) return;
+            if (_isInitializing || _currentTab?.NoteData == null) return;
 
-            _noteData.Left = this.Left;
-            _noteData.Top = this.Top;
-            _noteData.Width = this.Width;
-            _noteData.Height = this.Height;
-            _noteData.Content = GetDocumentXaml();
-            _noteData.IsTopmost = this.Topmost;
-            _noteData.FontSize = rtbContent.FontSize;
-            _noteData.IsBold = rtbContent.FontWeight == FontWeights.Bold;
-            _noteData.IsItalic = rtbContent.FontStyle == FontStyles.Italic;
-            _noteData.Alignment = rtbContent.Document.TextAlignment.ToString();
+            var noteData = _currentTab.NoteData;
+            noteData.Left = this.Left;
+            noteData.Top = this.Top;
+            noteData.Width = this.Width;
+            noteData.Height = this.Height;
+            noteData.Content = GetDocumentXaml();
+            noteData.IsTopmost = this.Topmost;
+            noteData.FontSize = rtbContent.FontSize;
+            noteData.IsBold = rtbContent.FontWeight == FontWeights.Bold;
+            noteData.IsItalic = rtbContent.FontStyle == FontStyles.Italic;
+            noteData.Alignment = rtbContent.Document.TextAlignment.ToString();
+
+            // 更新标签的标题和预览
+            noteData.Title = _currentTab.Title;
+            _currentTab.Preview = GetNotePreview(noteData.Content);
 
             ScheduleSave();
         }
@@ -164,11 +331,7 @@ namespace StickyNote
 
         private void NewNote_Click(object sender, RoutedEventArgs e)
         {
-            var newWindow = new MainWindow();
-            var pos = GetNextPosition(newWindow.Width, newWindow.Height);
-            newWindow.Left = pos.X;
-            newWindow.Top = pos.Y;
-            newWindow.Show();
+            CreateNewTab();
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
@@ -187,6 +350,17 @@ namespace StickyNote
         private void RtbContent_TextChanged(object sender, TextChangedEventArgs e)
         {
             SaveState();
+            UpdateCurrentTabPreview();
+        }
+
+        // 更新当前标签的预览
+        private void UpdateCurrentTabPreview()
+        {
+            if (_currentTab != null && !_isInitializing)
+            {
+                var content = GetDocumentXaml();
+                _currentTab.Preview = GetNotePreview(content);
+            }
         }
 
         private void AddTodo_Click(object sender, RoutedEventArgs e)
@@ -321,12 +495,151 @@ namespace StickyNote
         }
 
         // 右键菜单：改颜色
+        // 标签选择变化事件
+        private void TabList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (TabList.SelectedItem is TabItem selectedTab)
+            {
+                _currentTab = selectedTab;
+                ApplyDataToUI();
+            }
+        }
+
+        // 双击标签重命名
+        private void TabList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (TabList.SelectedItem is TabItem tab)
+            {
+                RenameTabDialog(tab);
+            }
+        }
+
+        // 添加标签按钮点击事件
+        private void AddTab_Click(object sender, RoutedEventArgs e)
+        {
+            CreateNewTab();
+        }
+
+        // 重命名标签
+        private void RenameTab_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.DataContext is TabItem tab)
+            {
+                RenameTabDialog(tab);
+            }
+        }
+
+        // 重命名标签对话框
+        private void RenameTabDialog(TabItem tab)
+        {
+            var dialog = new Window
+            {
+                Title = "重命名标签",
+                Width = 300,
+                Height = 150,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                ResizeMode = ResizeMode.NoResize
+            };
+
+            var grid = new Grid();
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var label = new System.Windows.Controls.Label { Content = "标签名称:", Margin = new Thickness(10) };
+            var textBox = new System.Windows.Controls.TextBox { Text = tab.Title, Margin = new Thickness(10), FontSize = 14 };
+            var buttonPanel = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = System.Windows.HorizontalAlignment.Right, Margin = new Thickness(10) };
+            
+            var okButton = new System.Windows.Controls.Button { Content = "确定", Width = 60, Height = 25, Margin = new Thickness(5, 0, 0, 0) };
+            var cancelButton = new System.Windows.Controls.Button { Content = "取消", Width = 60, Height = 25, Margin = new Thickness(5, 0, 0, 0) };
+
+            okButton.Click += (s, args) =>
+            {
+                if (!string.IsNullOrWhiteSpace(textBox.Text))
+                {
+                    tab.Title = textBox.Text.Trim();
+                    dialog.DialogResult = true;
+                }
+            };
+
+            cancelButton.Click += (s, args) => dialog.DialogResult = false;
+            textBox.KeyDown += (s, args) =>
+            {
+                if (args.Key == Key.Enter) okButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+                if (args.Key == Key.Escape) cancelButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+            };
+
+            buttonPanel.Children.Add(okButton);
+            buttonPanel.Children.Add(cancelButton);
+
+            Grid.SetRow(label, 0);
+            Grid.SetRow(textBox, 1);
+            Grid.SetRow(buttonPanel, 2);
+
+            grid.Children.Add(label);
+            grid.Children.Add(textBox);
+            grid.Children.Add(buttonPanel);
+
+            dialog.Content = grid;
+            textBox.Focus();
+            textBox.SelectAll();
+
+            if (dialog.ShowDialog() == true)
+            {
+                if (tab.NoteData != null)
+                {
+                    tab.NoteData.Title = tab.Title;
+                    NoteManager.SaveNotes();
+                }
+            }
+        }
+
+        // 删除标签
+        private void DeleteTab_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.DataContext is TabItem tab)
+            {
+                DeleteTabWithConfirmation(tab);
+            }
+        }
+
+        // 关闭标签按钮
+        private void CloseTab_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button button && button.DataContext is TabItem tab)
+            {
+                DeleteTabWithConfirmation(tab);
+            }
+        }
+
+        // 删除标签并确认
+        private void DeleteTabWithConfirmation(TabItem tab)
+        {
+            if (_tabs.Count <= 1)
+            {
+                System.Windows.MessageBox.Show("至少需要保留一个标签", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (System.Windows.MessageBox.Show($"确定要删除标签 '{tab.Title}' 吗？", "删除标签", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            {
+                NoteManager.RemoveNote(tab.NoteData);
+                _tabs.Remove(tab);
+                
+                if (_currentTab == tab)
+                {
+                    TabList.SelectedIndex = 0;
+                }
+            }
+        }
+
         private void ChangeColor_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is MenuItem item && item.Tag is string colorHex)
+            if (sender is MenuItem item && item.Tag is string colorHex && _currentTab?.NoteData != null)
             {
                 MainBorder.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colorHex));
-                _noteData.ColorHex = colorHex;
+                _currentTab.NoteData.ColorHex = colorHex;
                 SaveState();
                 UpdateForegroundForBackground(colorHex);
                 UpdatePaperBrush(colorHex);
@@ -336,10 +649,10 @@ namespace StickyNote
         // 右键菜单：改透明度
         private void ChangeOpacity_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is MenuItem item && double.TryParse(item.Tag.ToString(), out double opacity))
+            if (sender is MenuItem item && double.TryParse(item.Tag.ToString(), out double opacity) && _currentTab?.NoteData != null)
             {
                 this.Opacity = opacity;
-                _noteData.Opacity = opacity;
+                _currentTab.NoteData.Opacity = opacity;
                 SaveState();
             }
         }
@@ -353,11 +666,21 @@ namespace StickyNote
         // 删除便签 (永久删除)
         private void DeleteNote_Click(object sender, RoutedEventArgs e)
         {
+            if (_currentTab == null) return;
+
             if (System.Windows.MessageBox.Show("确定要删除此便签吗？", "删除", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
             {
-                NoteManager.RemoveNote(_noteData);
-                _isInitializing = true; // 防止Closing再保存
-                this.Close();
+                NoteManager.RemoveNote(_currentTab.NoteData);
+                _tabs.Remove(_currentTab);
+                
+                if (_tabs.Count == 0)
+                {
+                    CreateNewTab();
+                }
+                else
+                {
+                    TabList.SelectedIndex = 0;
+                }
             }
         }
 
@@ -426,10 +749,13 @@ namespace StickyNote
 
         private void Export_Click(object sender, RoutedEventArgs e)
         {
+            if (_currentTab?.NoteData == null) return;
+
             try
             {
                 var dir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-                var path = Path.Combine(dir, ($"StickyNote_{_noteData.Id}.txt"));
+                var fileName = $"StickyNote_{_currentTab.Title}_{_currentTab.NoteData.Id}.txt";
+                var path = Path.Combine(dir, fileName);
                 var range2 = new TextRange(rtbContent.Document.ContentStart, rtbContent.Document.ContentEnd);
                 File.WriteAllText(path, range2.Text ?? string.Empty);
                 System.Windows.MessageBox.Show($"已导出到: {path}");
@@ -698,6 +1024,7 @@ namespace StickyNote
     public class NoteData
     {
         public required string Id { get; set; }
+        public string Title { get; set; } = "";
         public required string Content { get; set; }
         public double Left { get; set; }
         public double Top { get; set; }

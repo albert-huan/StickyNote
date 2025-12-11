@@ -5,8 +5,8 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="便签" Height="300" Width="300"
-        MinHeight="150" MinWidth="200"
+        Title="便签" Height="300" Width="400"
+        MinHeight="150" MinWidth="100"
         WindowStyle="None" 
         AllowsTransparency="True" 
         Background="Transparent"
@@ -164,12 +164,79 @@
             </ContextMenu>
         </Border.ContextMenu>
 
-        <!-- 横线层：使用合成画刷包含底色与横线 -->
-        <Grid x:Name="LinesGrid" Background="{StaticResource LinedPaperBrush}">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="30"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="100" MinWidth="50" MaxWidth="300"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧标签栏 -->
+            <Grid Grid.Column="0" Background="#10000000">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <ListBox x:Name="TabList" Grid.Row="0" 
+                         Background="Transparent" BorderThickness="0" 
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         SelectionChanged="TabList_SelectionChanged"
+                         MouseDoubleClick="TabList_MouseDoubleClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,1">
+                                <Grid.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="重命名" Click="RenameTab_Click" />
+                                        <MenuItem Header="删除" Click="DeleteTab_Click" Foreground="Red" />
+                                    </ContextMenu>
+                                </Grid.ContextMenu>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="#3E2723" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding Preview}" FontSize="10" Foreground="#5D4037" Opacity="0.7" TextTrimming="CharacterEllipsis" MaxHeight="30"/>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Padding" Value="1"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="true" CornerRadius="2">
+                                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="true">
+                                                <Setter TargetName="Bd" Property="Background" Value="#405D4037"/>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="true">
+                                                <Setter TargetName="Bd" Property="Background" Value="#205D4037"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <Button Grid.Row="1" Content="+ 新建便签" Click="AddTab_Click" Height="30" Margin="5" Style="{StaticResource IconBtnStyle}" Foreground="#5D4037" FontWeight="Bold"/>
+            </Grid>
+
+            <!-- 分割线 -->
+            <GridSplitter Grid.Column="1" Width="2" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="#405D4037"/>
+
+            <!-- 横线层：使用合成画刷包含底色与横线 -->
+            <Grid x:Name="LinesGrid" Grid.Column="2" Background="{StaticResource LinedPaperBrush}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="30"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
             <!-- 1. 标题栏 -->
             <DockPanel Grid.Row="0" Background="Transparent">
@@ -257,6 +324,7 @@
             <!-- 3. 自定义右下角 Resize Grip (装饰用，实际缩放由WindowChrome处理) -->
             <Path Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" 
                   Data="M 0,12 L 12,12 L 12,0 Z" Fill="#405D4037" Margin="0,0,2,2" IsHitTestVisible="False"/>
+        </Grid>
         </Grid>
     </Border>
 </Window>
