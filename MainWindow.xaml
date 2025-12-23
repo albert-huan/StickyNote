@@ -236,6 +236,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="30"/>
                     <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
             <!-- 1. 标题栏 -->
@@ -271,10 +272,12 @@
                          Foreground="#3E2723"
                          Padding="10,2,10,10"
                          VerticalScrollBarVisibility="Hidden"
+                         HorizontalScrollBarVisibility="Auto"
                          TextChanged="RtbContent_TextChanged"
                          PreviewMouseLeftButtonUp="RtbContent_PreviewMouseLeftButtonUp">
                 <RichTextBox.Resources>
                     <Style TargetType="Paragraph">
+                        <Setter Property="Margin" Value="0"/>
                         <Setter Property="LineHeight" Value="30"/>
                         <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
                     </Style>
@@ -288,7 +291,7 @@
                 </RichTextBox.Template>
             </RichTextBox>
 
-            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="6,0,0,6" Background="#20FFFFFF">
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="6,0,0,6" Background="#20FFFFFF">
                 <Button Style="{StaticResource IconBtnStyle}" Width="26" Click="FontInc_Click" ToolTip="增大字号">
                     <TextBlock Text="A" FontSize="16" FontWeight="Bold" Foreground="#5D4037"/>
                 </Button>
@@ -322,7 +325,7 @@
             </StackPanel>
 
             <!-- 3. 自定义右下角 Resize Grip (装饰用，实际缩放由WindowChrome处理) -->
-            <Path Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" 
+            <Path Grid.Row="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" 
                   Data="M 0,12 L 12,12 L 12,0 Z" Fill="#405D4037" Margin="0,0,2,2" IsHitTestVisible="False"/>
         </Grid>
         </Grid>

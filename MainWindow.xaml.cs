@@ -388,7 +388,7 @@ namespace StickyNote
             if (currentParagraph == null)
             {
                 // 如果没有段落，创建一个新段落
-                currentParagraph = new Paragraph(todoRun);
+                currentParagraph = new Paragraph(todoRun) { Margin = new Thickness(0) };
                 doc.Blocks.Add(currentParagraph);
                 // 将光标移动到代办事项符号后面
                 rtbContent.CaretPosition = todoRun.ContentEnd;
@@ -424,7 +424,7 @@ namespace StickyNote
             else
             {
                 // 如果当前段落已有代办事项符号，在当前光标位置创建新段落并插入
-                Paragraph newParagraph = new Paragraph(todoRun);
+                Paragraph newParagraph = new Paragraph(todoRun) { Margin = new Thickness(0) };
                 doc.Blocks.InsertAfter(currentParagraph, newParagraph);
             }
 
@@ -660,7 +660,7 @@ namespace StickyNote
         private void Clear_Click(object sender, RoutedEventArgs e)
         {
             rtbContent.Document.Blocks.Clear();
-            rtbContent.Document.Blocks.Add(new Paragraph());
+            rtbContent.Document.Blocks.Add(new Paragraph() { Margin = new Thickness(0) });
         }
 
         // 删除便签 (永久删除)
@@ -888,7 +888,7 @@ namespace StickyNote
                 var p = rtbContent.CaretPosition.Paragraph;
                 if (p == null)
                 {
-                    p = new Paragraph();
+                    p = new Paragraph() { Margin = new Thickness(0) };
                     rtbContent.Document.Blocks.Add(p);
                 }
                 range = new TextRange(p.ContentStart, p.ContentEnd);
@@ -981,27 +981,30 @@ namespace StickyNote
 
         private void SetDocumentFromContent(string content)
         {
+            FlowDocument doc;
             if (string.IsNullOrEmpty(content))
             {
-                rtbContent.Document = new FlowDocument(new Paragraph(new Run("")));
-                return;
+                doc = new FlowDocument(new Paragraph(new Run("")) { Margin = new Thickness(0) });
             }
-            if (content.TrimStart().StartsWith("<FlowDocument"))
+            else if (content.TrimStart().StartsWith("<FlowDocument"))
             {
                 try
                 {
-                    var doc = System.Windows.Markup.XamlReader.Parse(content) as FlowDocument;
-                    rtbContent.Document = doc ?? new FlowDocument(new Paragraph(new Run("")));
+                    doc = System.Windows.Markup.XamlReader.Parse(content) as FlowDocument ?? new FlowDocument(new Paragraph(new Run("")) { Margin = new Thickness(0) });
                 }
                 catch
                 {
-                    rtbContent.Document = new FlowDocument(new Paragraph(new Run(content)));
+                    doc = new FlowDocument(new Paragraph(new Run(content)) { Margin = new Thickness(0) });
                 }
             }
             else
             {
-                rtbContent.Document = new FlowDocument(new Paragraph(new Run(content)));
+                doc = new FlowDocument(new Paragraph(new Run(content)) { Margin = new Thickness(0) });
             }
+
+            // 设置足够大的宽度以防止自动换行 (20000px)
+            doc.PageWidth = 20000;
+            rtbContent.Document = doc;
         }
         private string GetDocumentXaml()
         {
