@@ -18,7 +18,7 @@ namespace StickyNote
     // 标签项数据模型
     public class TabItem : INotifyPropertyChanged
     {
-        private string _title = "新便签";
+        private string _title = "便签";
         private string _preview = string.Empty;
 
         public string Id { get; set; } = string.Empty;
@@ -110,10 +110,11 @@ namespace StickyNote
                 // 加载所有便签作为标签
                 LoadAllNotesAsTabs();
 
-                // 如果没有标签，创建一个新的
+                // 如果没有标签，显示空状态
                 if (_tabs.Count == 0)
                 {
-                    CreateNewTab();
+                    _currentTab = null;
+                    UpdateEmptyState();
                 }
                 else
                 {
@@ -172,7 +173,7 @@ namespace StickyNote
             var noteData = new NoteData
             {
                 Id = Guid.NewGuid().ToString(),
-                Title = "新便签",
+                Title = "便签",
                 Content = "",
                 Width = this.Width,
                 Height = this.Height,
@@ -192,7 +193,7 @@ namespace StickyNote
             var tab = new TabItem
             {
                 Id = noteData.Id,
-                Title = "新便签",
+                Title = "便签",
                 Preview = "",
                 NoteData = noteData
             };
@@ -211,12 +212,17 @@ namespace StickyNote
             {
                 TabList.SelectedIndex = _tabs.Count - 1; // 选择最后一个（刚恢复的）
             }
+            else
+            {
+                _currentTab = null;
+                UpdateEmptyState();
+            }
         }
 
         // 获取便签标题
         private string GetNoteTitle(string content)
         {
-            if (string.IsNullOrEmpty(content)) return "新便签";
+            if (string.IsNullOrEmpty(content)) return "便签";
             
             string text = content;
             if (content.TrimStart().StartsWith("<FlowDocument"))
@@ -233,7 +239,7 @@ namespace StickyNote
                 catch { }
             }
 
-            var firstLine = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "新便签";
+            var firstLine = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "便签";
             if (firstLine.Length > 15) firstLine = firstLine.Substring(0, 15) + "...";
             return firstLine;
         }
@@ -267,40 +273,72 @@ namespace StickyNote
             return preview;
         }
 
+        private bool _isLoading = false;
+
+        private void UpdateEmptyState()
+        {
+            bool isEmpty = _tabs.Count == 0;
+            if (EmptyStateText != null)
+            {
+                EmptyStateText.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
+            }
+            if (rtbContent != null)
+            {
+                rtbContent.Visibility = isEmpty ? Visibility.Collapsed : Visibility.Visible;
+                rtbContent.IsEnabled = !isEmpty;
+            }
+            
+            // 禁用/启用一些按钮
+            if (PaletteBtn != null) PaletteBtn.IsEnabled = !isEmpty;
+            if (btnTopmost != null) btnTopmost.IsEnabled = !isEmpty;
+        }
+
         // 将数据渲染到 UI
         private void ApplyDataToUI()
         {
+            UpdateEmptyState();
             if (_currentTab?.NoteData == null) return;
 
-            var noteData = _currentTab.NoteData;
-            this.Topmost = noteData.IsTopmost;
-            this.Opacity = noteData.Opacity;
-            SetDocumentFromContent(noteData.Content);
-            btnTopmost.IsChecked = noteData.IsTopmost;
-
+            _isLoading = true;
             try
             {
-                MainBorder.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(noteData.ColorHex));
-            }
-            catch { }
+                var noteData = _currentTab.NoteData;
+                this.Topmost = noteData.IsTopmost;
+                this.Opacity = noteData.Opacity;
+                SetDocumentFromContent(noteData.Content);
+                btnTopmost.IsChecked = noteData.IsTopmost;
 
-            UpdateShadowForDpi();
-            UpdateForegroundForBackground(noteData.ColorHex);
-            UpdatePaperBrush(noteData.ColorHex);
-            if (noteData.FontSize > 0) rtbContent.FontSize = noteData.FontSize;
-            rtbContent.FontWeight = noteData.IsBold ? FontWeights.Bold : FontWeights.Normal;
-            rtbContent.FontStyle = noteData.IsItalic ? FontStyles.Italic : FontStyles.Normal;
-            if (!string.IsNullOrEmpty(noteData.Alignment))
+                try
+                {
+                    MainBorder.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(noteData.ColorHex));
+                }
+                catch { }
+
+                UpdateShadowForDpi();
+                UpdateForegroundForBackground(noteData.ColorHex);
+                UpdatePaperBrush(noteData.ColorHex);
+                if (noteData.FontSize > 0) rtbContent.FontSize = noteData.FontSize;
+                rtbContent.FontWeight = noteData.IsBold ? FontWeights.Bold : FontWeights.Normal;
+                rtbContent.FontStyle = noteData.IsItalic ? FontStyles.Italic : FontStyles.Normal;
+                if (!string.IsNullOrEmpty(noteData.Alignment))
+                {
+                    if (Enum.TryParse<TextAlignment>(noteData.Alignment, out var a))
+                        rtbContent.Document.TextAlignment = a;
+                }
+            }
+            finally
             {
-                if (Enum.TryParse<TextAlignment>(noteData.Alignment, out var a))
-                    rtbContent.Document.TextAlignment = a;
+                _isLoading = false;
             }
         }
 
         // 保存当前状态
         private void SaveState()
         {
-            if (_isInitializing || _currentTab?.NoteData == null) return;
+            if (_isInitializing || _isLoading || _currentTab?.NoteData == null) 
+            {
+                return;
+            }
 
             var noteData = _currentTab.NoteData;
             noteData.Left = this.Left;
@@ -332,6 +370,41 @@ namespace StickyNote
         private void NewNote_Click(object sender, RoutedEventArgs e)
         {
             CreateNewTab();
+        }
+
+        private void Minimize_Click(object sender, RoutedEventArgs e)
+        {
+            this.WindowState = WindowState.Minimized;
+        }
+
+        private void Maximize_Click(object sender, RoutedEventArgs e)
+        {
+            if (this.WindowState == WindowState.Maximized)
+            {
+                this.WindowState = WindowState.Normal;
+            }
+            else
+            {
+                this.WindowState = WindowState.Maximized;
+            }
+        }
+
+        protected override void OnStateChanged(EventArgs e)
+        {
+            base.OnStateChanged(e);
+            if (pathMaximize != null)
+            {
+                if (this.WindowState == WindowState.Maximized)
+                {
+                    // Restore icon (Two overlapping squares)
+                    pathMaximize.Data = Geometry.Parse("M4,4 L4,12 L12,12 L12,4 Z M6,4 L6,2 L14,2 L14,10 L12,10");
+                }
+                else
+                {
+                    // Maximize icon (Single square)
+                    pathMaximize.Data = Geometry.Parse("M2,2 L12,2 L12,12 L2,12 Z");
+                }
+            }
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
@@ -485,8 +558,46 @@ namespace StickyNote
                         // 找到符号，替换它
                         TextPointer symbolStart = current.GetPositionAtOffset(index);
                         TextPointer symbolEnd = symbolStart.GetPositionAtOffset(oldSymbol.Length);
-                        TextRange symbolRange = new TextRange(symbolStart, symbolEnd);
-                        symbolRange.Text = newSymbol;
+                        
+                        rtbContent.BeginChange();
+                        try
+                        {
+                            TextRange symbolRange = new TextRange(symbolStart, symbolEnd);
+                            symbolRange.Text = newSymbol;
+
+                            // 如果是标记为完成（☑），则将该行移动到末尾
+                            if (newSymbol == "☑")
+                            {
+                                Paragraph para = symbolStart.Paragraph;
+                                if (para != null && para.Parent is FlowDocument doc && doc == rtbContent.Document)
+                                {
+                                    // 检查是否已经是最后一段
+                                    if (doc.Blocks.LastBlock != para)
+                                    {
+                                        // 记录原来位置的下一个段落，用于保持视觉位置
+                                        Block nextBlock = para.NextBlock;
+
+                                        doc.Blocks.Remove(para);
+                                        doc.Blocks.Add(para);
+                                        
+                                        // 如果有下一个段落，将光标移过去，防止视角跳到文档末尾
+                                        if (nextBlock != null)
+                                        {
+                                            rtbContent.CaretPosition = nextBlock.ContentStart;
+                                            nextBlock.BringIntoView();
+                                        }
+                                        else
+                                        {
+                                            rtbContent.ScrollToEnd();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            rtbContent.EndChange();
+                        }
                         break;
                     }
                 }
@@ -498,10 +609,76 @@ namespace StickyNote
         // 标签选择变化事件
         private void TabList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (TabList.SelectedItem is TabItem selectedTab)
+            try
             {
-                _currentTab = selectedTab;
-                ApplyDataToUI();
+                // 切换前保存当前便签的内容
+                // 使用 _currentTab 来保存离开的那个便签的状态
+                if (_currentTab != null && _currentTab.NoteData != null)
+                {
+                    // 只有当 _currentTab 确实是之前选中的那个便签时才保存
+                    // 防止事件多次触发导致的混乱
+                    try
+                    {
+                        SaveState();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log($"SaveState failed during switch: {ex.Message}");
+                    }
+                }
+
+                // 获取新选中的标签
+                StickyNote.TabItem? selectedTab = null;
+                if (e.AddedItems.Count > 0)
+                {
+                    selectedTab = e.AddedItems[0] as StickyNote.TabItem;
+                }
+                
+                if (selectedTab == null)
+                {
+                    selectedTab = TabList.SelectedItem as StickyNote.TabItem;
+                }
+
+                if (selectedTab != null)
+                {
+                    _currentTab = selectedTab;
+                    ApplyDataToUI();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error in TabList_SelectionChanged: {ex.Message}");
+            }
+        }
+
+        private void TabList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                // 获取点击的 ListBoxItem
+                var item = ItemsControl.ContainerFromElement(TabList, e.OriginalSource as DependencyObject) as ListBoxItem;
+                if (item != null && item.Content is StickyNote.TabItem clickedTab)
+                {
+                    // 如果点击的是当前已经选中的标签，强制刷新 UI
+                    // 这解决了 ListBox 选中状态与实际内容不一致的问题
+                    if (clickedTab == _currentTab)
+                    {
+                        Logger.Log($"Forcing reload for clicked tab: {clickedTab.Title}");
+                        ApplyDataToUI();
+                    }
+                    else if (TabList.SelectedItem == clickedTab && _currentTab != clickedTab)
+                    {
+                        // 如果 ListBox 认为它被选中了，但 _currentTab 不是它，说明状态不同步
+                        // 手动触发切换逻辑
+                        Logger.Log($"Fixing sync issue for tab: {clickedTab.Title}");
+                        _currentTab = clickedTab;
+                        ApplyDataToUI();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error in TabList_PreviewMouseLeftButtonUp: {ex.Message}");
             }
         }
 
@@ -616,18 +793,17 @@ namespace StickyNote
         // 删除标签并确认
         private void DeleteTabWithConfirmation(TabItem tab)
         {
-            if (_tabs.Count <= 1)
-            {
-                System.Windows.MessageBox.Show("至少需要保留一个标签", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-
             if (System.Windows.MessageBox.Show($"确定要删除标签 '{tab.Title}' 吗？", "删除标签", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
             {
                 NoteManager.RemoveNote(tab.NoteData);
                 _tabs.Remove(tab);
                 
-                if (_currentTab == tab)
+                if (_tabs.Count == 0)
+                {
+                    _currentTab = null;
+                    UpdateEmptyState();
+                }
+                else if (_currentTab == tab)
                 {
                     TabList.SelectedIndex = 0;
                 }
@@ -670,12 +846,14 @@ namespace StickyNote
 
             if (System.Windows.MessageBox.Show("确定要删除此便签吗？", "删除", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
             {
-                NoteManager.RemoveNote(_currentTab.NoteData);
-                _tabs.Remove(_currentTab);
+                var tabToDelete = _currentTab;
+                NoteManager.RemoveNote(tabToDelete.NoteData);
+                _tabs.Remove(tabToDelete);
                 
                 if (_tabs.Count == 0)
                 {
-                    CreateNewTab();
+                    _currentTab = null;
+                    UpdateEmptyState();
                 }
                 else
                 {

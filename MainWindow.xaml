@@ -180,9 +180,10 @@
 
                 <ListBox x:Name="TabList" Grid.Row="0" 
                          Background="Transparent" BorderThickness="0" 
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         SelectionChanged="TabList_SelectionChanged"
-                         MouseDoubleClick="TabList_MouseDoubleClick">
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 SelectionChanged="TabList_SelectionChanged"
+                 PreviewMouseLeftButtonUp="TabList_PreviewMouseLeftButtonUp"
+                 MouseDoubleClick="TabList_MouseDoubleClick">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid Margin="0,1">
@@ -201,6 +202,7 @@
                     </ListBox.ItemTemplate>
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
+                            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                             <Setter Property="Padding" Value="1"/>
                             <Setter Property="Background" Value="Transparent"/>
@@ -253,6 +255,12 @@
                 <!-- 右侧功能区 -->
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
                     <ToggleButton x:Name="btnTopmost" Style="{StaticResource PinToggleStyle}" Width="30" Click="PinButton_Click" ToolTip="置顶"/>
+                    <Button Style="{StaticResource IconBtnStyle}" Width="30" Click="Minimize_Click" ToolTip="最小化">
+                        <Path Data="M2,8 L12,8" Stroke="#5D4037" StrokeThickness="1.5" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Button>
+                    <Button x:Name="btnMaximize" Style="{StaticResource IconBtnStyle}" Width="30" Click="Maximize_Click" ToolTip="最大化">
+                        <Path x:Name="pathMaximize" Data="M2,2 L12,2 L12,12 L2,12 Z" Stroke="#5D4037" StrokeThickness="1.5" HorizontalAlignment="Center" VerticalAlignment="Center" Fill="Transparent"/>
+                    </Button>
                     <Button Style="{StaticResource IconBtnStyle}" Width="30" Click="CloseButton_Click" ToolTip="关闭">
                         <Path Data="M0,0 L10,10 M0,10 L10,0" Stroke="#5D4037" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Button>
@@ -264,6 +272,12 @@
             </DockPanel>
 
             <!-- 2. 内容输入区 -->
+            <TextBlock x:Name="EmptyStateText" Grid.Row="1" 
+                       Text="点击左下角 + 新建便签" 
+                       HorizontalAlignment="Center" VerticalAlignment="Center" 
+                       Foreground="#5D4037" Opacity="0.5" FontSize="16"
+                       Visibility="Collapsed" IsHitTestVisible="False"/>
+
             <RichTextBox x:Name="rtbContent"
                          Grid.Row="1"
                          Background="Transparent"
