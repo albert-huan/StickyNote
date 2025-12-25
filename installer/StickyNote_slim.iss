@@ -1,5 +1,5 @@
 #define AppName "StickyNote"
-#define AppVersion "1.0.0"
+#define AppVersion "1.4.0"
 #define AppPublisher "StickyNote"
 #define AppURL "https://example.invalid/StickyNote"
 #define AppExe "StickyNote.exe"

@@ -605,6 +605,282 @@ namespace StickyNote
             }
         }
 
+        // --- 批量操作与编号 ---
+
+        private List<Paragraph> GetSelectedParagraphs()
+        {
+            var list = new List<Paragraph>();
+            var start = rtbContent.Selection.Start;
+            var end = rtbContent.Selection.End;
+
+            // 确保 start < end
+            if (start.CompareTo(end) > 0) (start, end) = (end, start);
+
+            Block current = rtbContent.Document.Blocks.FirstBlock;
+            while (current != null)
+            {
+                // 检查交叉：Block Start <= Selection End AND Block End >= Selection Start
+                if (current.ContentStart.CompareTo(end) <= 0 && current.ContentEnd.CompareTo(start) >= 0)
+                {
+                    if (current is Paragraph p) list.Add(p);
+                }
+
+                if (current.ContentStart.CompareTo(end) > 0) break;
+
+                current = current.NextBlock;
+            }
+            return list;
+        }
+
+        private void BatchSetTodo_Click(object sender, RoutedEventArgs e)
+        {
+            var paras = GetSelectedParagraphs();
+            if (paras.Count == 0) return;
+
+            rtbContent.BeginChange();
+            try
+            {
+                foreach (var p in paras)
+                {
+                    string text = new TextRange(p.ContentStart, p.ContentEnd).Text;
+                    if (!text.StartsWith("☐ ") && !text.StartsWith("☑ "))
+                    {
+                        // 确保 Paragraph 有 Inline，如果没有（空行），添加一个 Run
+                        if (p.Inlines.Count == 0)
+                        {
+                            p.Inlines.Add(new Run("☐ "));
+                        }
+                        else
+                        {
+                            p.Inlines.InsertBefore(p.Inlines.FirstInline, new Run("☐ "));
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                rtbContent.EndChange();
+                SaveState();
+            }
+        }
+
+        private void BatchUnsetTodo_Click(object sender, RoutedEventArgs e)
+        {
+            var paras = GetSelectedParagraphs();
+            if (paras.Count == 0) return;
+
+            rtbContent.BeginChange();
+            try
+            {
+                foreach (var p in paras)
+                {
+                    TextPointer start = p.ContentStart.GetInsertionPosition(LogicalDirection.Forward);
+                    string text = start.GetTextInRun(LogicalDirection.Forward);
+
+                    if (text.StartsWith("☐ ") || text.StartsWith("☑ "))
+                    {
+                        TextPointer delEnd = start.GetPositionAtOffset(2);
+                        new TextRange(start, delEnd).Text = "";
+                    }
+                    else if (text.StartsWith("☐") || text.StartsWith("☑"))
+                    {
+                         TextPointer delEnd = start.GetPositionAtOffset(1);
+                         new TextRange(start, delEnd).Text = "";
+                    }
+                }
+            }
+            finally
+            {
+                rtbContent.EndChange();
+                SaveState();
+            }
+        }
+
+        private void BatchCheckTodo_Click(object sender, RoutedEventArgs e)
+        {
+            var paras = GetSelectedParagraphs();
+            if (paras.Count == 0) return;
+
+            rtbContent.BeginChange();
+            try
+            {
+                foreach (var p in paras)
+                {
+                    TextPointer start = p.ContentStart.GetInsertionPosition(LogicalDirection.Forward);
+                    string text = start.GetTextInRun(LogicalDirection.Forward);
+
+                    if (text.StartsWith("☐"))
+                    {
+                        TextPointer symbolEnd = start.GetPositionAtOffset(1);
+                        new TextRange(start, symbolEnd).Text = "☑";
+                    }
+                }
+            }
+            finally
+            {
+                rtbContent.EndChange();
+                SaveState();
+            }
+        }
+
+        private void BatchUncheckTodo_Click(object sender, RoutedEventArgs e)
+        {
+            var paras = GetSelectedParagraphs();
+            if (paras.Count == 0) return;
+
+            rtbContent.BeginChange();
+            try
+            {
+                foreach (var p in paras)
+                {
+                    TextPointer start = p.ContentStart.GetInsertionPosition(LogicalDirection.Forward);
+                    string text = start.GetTextInRun(LogicalDirection.Forward);
+
+                    if (text.StartsWith("☑"))
+                    {
+                        TextPointer symbolEnd = start.GetPositionAtOffset(1);
+                        new TextRange(start, symbolEnd).Text = "☐";
+                    }
+                }
+            }
+            finally
+            {
+                rtbContent.EndChange();
+                SaveState();
+            }
+        }
+
+        private void BatchNumbering_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.Tag is string style)
+            {
+                var paras = GetSelectedParagraphs();
+                if (paras.Count == 0) return;
+
+                rtbContent.BeginChange();
+                try
+                {
+                    // 先尝试移除现有的编号，避免重复添加
+                    RemoveNumbering(paras);
+
+                    int index = 1;
+                    foreach (var p in paras)
+                    {
+                        string text = new TextRange(p.ContentStart, p.ContentEnd).Text;
+                        if (string.IsNullOrWhiteSpace(text)) continue;
+
+                        string prefix = "";
+                        switch (style)
+                        {
+                            case "1.": prefix = $"{index}. "; break;
+                            case "1)": prefix = $"{index}) "; break;
+                            case "①": prefix = $"{GetCircleNumber(index)} "; break;
+                            case "A.": prefix = $"{GetAlphaNumber(index)}. "; break;
+                        }
+
+                        if (p.Inlines.Count == 0)
+                            p.Inlines.Add(new Run(prefix));
+                        else
+                            p.Inlines.InsertBefore(p.Inlines.FirstInline, new Run(prefix));
+                        
+                        index++;
+                    }
+                }
+                finally
+                {
+                    rtbContent.EndChange();
+                    SaveState();
+                }
+            }
+        }
+
+        private void BatchRemoveNumbering_Click(object sender, RoutedEventArgs e)
+        {
+            var paras = GetSelectedParagraphs();
+            if (paras.Count == 0) return;
+
+            rtbContent.BeginChange();
+            try
+            {
+                RemoveNumbering(paras);
+            }
+            finally
+            {
+                rtbContent.EndChange();
+                SaveState();
+            }
+        }
+
+        private void RemoveNumbering(List<Paragraph> paras)
+        {
+            foreach (var p in paras)
+            {
+                TextPointer start = p.ContentStart.GetInsertionPosition(LogicalDirection.Forward);
+                string text = start.GetTextInRun(LogicalDirection.Forward);
+                
+                // 匹配常见的编号格式
+                // 1. 1) ① A. (1) 等
+                // 这里使用简单的逻辑判断，移除开头的特定模式
+                
+                int removeLen = 0;
+                
+                // 检查 A. B. ...
+                if (text.Length >= 3 && char.IsLetter(text[0]) && text[1] == '.' && text[2] == ' ')
+                    removeLen = 3;
+                // 检查数字开头的 1. 10. 1) 10) ...
+                else if (char.IsDigit(text[0]))
+                {
+                    int i = 0;
+                    while (i < text.Length && char.IsDigit(text[i])) i++;
+                    if (i < text.Length && (text[i] == '.' || text[i] == ')') && i + 1 < text.Length && text[i+1] == ' ')
+                    {
+                        removeLen = i + 2;
+                    }
+                }
+                // 检查 ① ... ⑳
+                else if (text.Length >= 2 && text[0] >= '①' && text[0] <= '⑳' && text[1] == ' ')
+                {
+                    removeLen = 2;
+                }
+                // 检查 (1) ...
+                else if (text.StartsWith("(") && text.Contains(")") && text.IndexOf(")") < 6)
+                {
+                    int idx = text.IndexOf(")");
+                    if (idx + 1 < text.Length && text[idx+1] == ' ')
+                    {
+                        // 确保括号里是数字
+                        bool isNum = true;
+                        for(int k=1; k<idx; k++) if(!char.IsDigit(text[k])) { isNum = false; break; }
+                        if (isNum) removeLen = idx + 2;
+                    }
+                }
+
+                if (removeLen > 0)
+                {
+                    TextPointer delEnd = start.GetPositionAtOffset(removeLen);
+                    new TextRange(start, delEnd).Text = "";
+                }
+            }
+        }
+
+        private string GetCircleNumber(int i)
+        {
+            if (i >= 1 && i <= 20) return ((char)('①' + i - 1)).ToString();
+            return $"({i})";
+        }
+
+        private string GetAlphaNumber(int i)
+        {
+            string res = "";
+            while (i > 0)
+            {
+                i--;
+                res = (char)('A' + (i % 26)) + res;
+                i /= 26;
+            }
+            return res;
+        }
+
         // 右键菜单：改颜色
         // 标签选择变化事件
         private void TabList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1196,6 +1472,14 @@ namespace StickyNote
         private void Search_Click(object sender, RoutedEventArgs e)
         {
             NoteSearch.Show();
+        }
+
+        private void About_Click(object sender, RoutedEventArgs e)
+        {
+            var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            // 格式化为 v1.4.0 (去掉末尾的 .0 如果是 0)
+            string verStr = version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.4.0";
+            System.Windows.MessageBox.Show($"StickyNote 便签\n版本: v{verStr}\n\n一个简单好用的桌面便签工具。", "关于", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
     }

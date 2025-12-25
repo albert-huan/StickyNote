@@ -161,6 +161,8 @@
                 <Separator/>
                 <MenuItem Header="清空内容" Click="Clear_Click"/>
                 <MenuItem Header="删除此便签 (Ctrl+D)" Click="DeleteNote_Click" Foreground="Red"/>
+                <Separator/>
+                <MenuItem Header="关于 StickyNote v1.4.0" Click="About_Click"/>
             </ContextMenu>
         </Border.ContextMenu>
 
@@ -289,6 +291,28 @@
                          HorizontalScrollBarVisibility="Auto"
                          TextChanged="RtbContent_TextChanged"
                          PreviewMouseLeftButtonUp="RtbContent_PreviewMouseLeftButtonUp">
+                <RichTextBox.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="设为待办" Click="BatchSetTodo_Click"/>
+                        <MenuItem Header="取消待办" Click="BatchUnsetTodo_Click"/>
+                        <Separator/>
+                        <MenuItem Header="标记完成" Click="BatchCheckTodo_Click"/>
+                        <MenuItem Header="取消完成" Click="BatchUncheckTodo_Click"/>
+                        <Separator/>
+                        <MenuItem Header="添加编号">
+                            <MenuItem Header="1. 内容" Click="BatchNumbering_Click" Tag="1."/>
+                            <MenuItem Header="1) 内容" Click="BatchNumbering_Click" Tag="1)"/>
+                            <MenuItem Header="① 内容" Click="BatchNumbering_Click" Tag="①"/>
+                            <MenuItem Header="A. 内容" Click="BatchNumbering_Click" Tag="A."/>
+                            <Separator/>
+                            <MenuItem Header="取消编号" Click="BatchRemoveNumbering_Click"/>
+                        </MenuItem>
+                        <Separator/>
+                        <MenuItem Header="剪切" Command="Cut"/>
+                        <MenuItem Header="复制" Command="Copy"/>
+                        <MenuItem Header="粘贴" Command="Paste"/>
+                    </ContextMenu>
+                </RichTextBox.ContextMenu>
                 <RichTextBox.Resources>
                     <Style TargetType="Paragraph">
                         <Setter Property="Margin" Value="0"/>
