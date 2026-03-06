@@ -24,6 +24,7 @@ namespace StickyNote
         public bool IsUnderline { get; set; }
         public bool IsStrikethrough { get; set; }
         public string Alignment { get; set; } = "Left";
+        public bool IsCustomTitle { get; set; } = false;
 
         // P1: 纯文本预览缓存（不序列化，运行时生成）
         [JsonIgnore]

@@ -12,3 +12,4 @@ D:\develop\StickyNote\obj\Debug\net8.0-windows\refint\StickyNote.dll
 D:\develop\StickyNote\obj\Debug\net8.0-windows\StickyNote.pdb
 D:\develop\StickyNote\obj\Debug\net8.0-windows\StickyNote.genruntimeconfig.cache
 D:\develop\StickyNote\obj\Debug\net8.0-windows\ref\StickyNote.dll
+D:\develop\StickyNote\obj\Debug\net8.0-windows\StickyNote.sourcelink.json

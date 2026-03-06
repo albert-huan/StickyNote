@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("StickyNote")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.5.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.5.0+fdecd6739c705d09dc87c00a4d724d4b362a13f8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.5.0+86f2e504ac16835e5c61acef60076f6980fe95f5")]
 [assembly: System.Reflection.AssemblyProductAttribute("StickyNote")]
 [assembly: System.Reflection.AssemblyTitleAttribute("StickyNote")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.5.0")]

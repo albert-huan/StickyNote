@@ -30,21 +30,17 @@ Write-Host "Found Inno Setup: $ISCC" -ForegroundColor Green
 # 1. Publish Slim versions
 Write-Host "`n=== Publishing Slim Versions ===" -ForegroundColor Cyan
 dotnet publish StickyNote.csproj -c Release -r win-x64 /p:PublishSingleFile=true /p:SelfContained=false -o publish-slim/win-x64
-dotnet publish StickyNote.csproj -c Release -r win-x86 /p:PublishSingleFile=true /p:SelfContained=false -o publish-slim/win-x86
 
 # 2. Publish Self-contained versions
 Write-Host "`n=== Publishing Self-contained Versions ===" -ForegroundColor Cyan
 dotnet publish StickyNote.csproj -c Release -r win-x64 /p:PublishSingleFile=true /p:SelfContained=true /p:IncludeNativeLibrariesForSelfExtract=true -o publish-sc/win-x64
-dotnet publish StickyNote.csproj -c Release -r win-x86 /p:PublishSingleFile=true /p:SelfContained=true /p:IncludeNativeLibrariesForSelfExtract=true -o publish-sc/win-x86
 
 # 3. Compile Installers
 Write-Host "`n=== Compiling Installers ===" -ForegroundColor Cyan
 
 $installers = @(
     @{ Script = "installer\StickyNote_slim.iss"; Arch = "x64" },
-    @{ Script = "installer\StickyNote_slim.iss"; Arch = "x86" },
-    @{ Script = "installer\StickyNote_sc.iss"; Arch = "x64" },
-    @{ Script = "installer\StickyNote_sc.iss"; Arch = "x86" }
+    @{ Script = "installer\StickyNote_sc.iss"; Arch = "x64" }
 )
 
 foreach ($inst in $installers) {

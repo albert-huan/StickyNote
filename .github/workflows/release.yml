@@ -24,31 +24,27 @@ jobs:
       - name: Restore
         run: dotnet restore
 
-      - name: Publish Slim binaries (x64/x86)
+      - name: Publish Slim binaries (x64)
         shell: pwsh
         run: |
           dotnet publish StickyNote.csproj -c Release -r win-x64 /p:PublishSingleFile=true /p:SelfContained=false -o publish-slim/win-x64
-          dotnet publish StickyNote.csproj -c Release -r win-x86 /p:PublishSingleFile=true /p:SelfContained=false -o publish-slim/win-x86
 
-      - name: Publish Self-contained binaries (x64/x86)
+      - name: Publish Self-contained binaries (x64)
         shell: pwsh
         run: |
           dotnet publish StickyNote.csproj -c Release -r win-x64 /p:PublishSingleFile=true /p:SelfContained=true /p:IncludeNativeLibrariesForSelfExtract=true -o publish-sc/win-x64
-          dotnet publish StickyNote.csproj -c Release -r win-x86 /p:PublishSingleFile=true /p:SelfContained=true /p:IncludeNativeLibrariesForSelfExtract=true -o publish-sc/win-x86
 
       - name: Install Inno Setup
         shell: pwsh
         run: |
           choco install innosetup -y
 
-      - name: Compile installers (Slim & Full x64/x86)
+      - name: Compile installers (Slim & Full x64)
         shell: pwsh
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\iscc.exe"
           & $iscc 'installer\StickyNote_slim.iss' /DArch=x64
-          & $iscc 'installer\StickyNote_slim.iss' /DArch=x86
           & $iscc 'installer\StickyNote_sc.iss' /DArch=x64
-          & $iscc 'installer\StickyNote_sc.iss' /DArch=x86
 
       - name: Upload installers artifact
         uses: actions/upload-artifact@v4
@@ -80,16 +76,6 @@ jobs:
           asset_name: StickyNote_Setup_Slim_x64.exe
           asset_content_type: application/octet-stream
 
-      - name: Upload asset Slim x86
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: installer/out/StickyNote_Setup_Slim_x86.exe
-          asset_name: StickyNote_Setup_Slim_x86.exe
-          asset_content_type: application/octet-stream
 
       - name: Upload asset Full x64
         if: startsWith(github.ref, 'refs/tags/')
@@ -102,13 +88,3 @@ jobs:
           asset_name: StickyNote_Setup_x64.exe
           asset_content_type: application/octet-stream
 
-      - name: Upload asset Full x86
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: installer/out/StickyNote_Setup_x86.exe
-          asset_name: StickyNote_Setup_x86.exe
-          asset_content_type: application/octet-stream

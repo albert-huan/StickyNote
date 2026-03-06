@@ -483,10 +483,13 @@ namespace StickyNote
                 _current.FontSize = _rtb.Font.Size;
                 // P1: 更新预览缓存
                 _current.PlainPreview = TabPanel.BuildPreview(_current.Content);
-                // 标题取第一行
-                string firstLine = _rtb.Lines.Length > 0 ? _rtb.Lines[0] : "便签";
-                if (firstLine.Length > 15) firstLine = firstLine[..15] + "…";
-                _current.Title = string.IsNullOrWhiteSpace(firstLine) ? "便签" : firstLine;
+                // 标题取第一行 (如果不是自定义标题)
+                if (!_current.IsCustomTitle)
+                {
+                    string firstLine = _rtb.Lines.Length > 0 ? _rtb.Lines[0] : "便签";
+                    if (firstLine.Length > 15) firstLine = firstLine[..15] + "…";
+                    _current.Title = string.IsNullOrWhiteSpace(firstLine) ? "便签" : firstLine;
+                }
                 _tabPanel.UpdateNote(_current);
                 _titleBar.Invalidate(); // U1: 更新标题
                 ScheduleSave();
@@ -521,6 +524,7 @@ namespace StickyNote
             string? newName = InputDialog("重命名", "标签名称:", note.Title);
             if (newName == null) return;
             note.Title = newName.Trim();
+            note.IsCustomTitle = true;
             NoteManager.SaveNotes();
             _tabPanel.SetNotes(_notes, _current);
         }
