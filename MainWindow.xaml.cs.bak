@@ -392,6 +392,17 @@ namespace StickyNote
         protected override void OnStateChanged(EventArgs e)
         {
             base.OnStateChanged(e);
+            
+            if (this.WindowState == WindowState.Minimized)
+            {
+                MainBorder.CacheMode = null;
+                App.FlushMemory(); // Release memory immediately upon minimizing
+            }
+            else
+            {
+                MainBorder.CacheMode = new BitmapCache();
+            }
+
             if (pathMaximize != null)
             {
                 if (this.WindowState == WindowState.Maximized)

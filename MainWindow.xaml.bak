@@ -182,6 +182,9 @@
 
                 <ListBox x:Name="TabList" Grid.Row="0" 
                          Background="Transparent" BorderThickness="0" 
+                 VirtualizingStackPanel.IsVirtualizing="True"
+                 VirtualizingStackPanel.VirtualizationMode="Recycling"
+                 ScrollViewer.IsDeferredScrollingEnabled="True"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  SelectionChanged="TabList_SelectionChanged"
                  PreviewMouseLeftButtonUp="TabList_PreviewMouseLeftButtonUp"
@@ -282,6 +285,7 @@
 
             <RichTextBox x:Name="rtbContent"
                          Grid.Row="1"
+                         UndoLimit="50"
                          Background="Transparent"
                          BorderThickness="0"
                          FontFamily="Microsoft YaHei"
@@ -357,7 +361,7 @@
                 <Button Style="{StaticResource IconBtnStyle}" Width="26" Click="AlignRight_Click" ToolTip="右对齐">
                     <Path Data="M0,3 L14,3 M4,7 L14,7 M0,11 L14,11" Stroke="#5D4037" StrokeThickness="2"/>
                 </Button>
-                <Button Style="{StaticResource IconBtnStyle}" Width="26" Click="AddTodo_Click" ToolTip="添加代办事项">
+                <Button Style="{StaticResource IconBtnStyle}" Width="28" Click="AddTodo_Click" ToolTip="添加代办事项">
                     <Path Data="M0,0 L14,0 L14,14 L0,14 Z" Stroke="#5D4037" StrokeThickness="2" Fill="Transparent"/>
                 </Button>
             </StackPanel>

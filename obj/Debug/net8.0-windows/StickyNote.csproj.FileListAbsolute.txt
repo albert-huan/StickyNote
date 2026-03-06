@@ -1,0 +1,14 @@
+D:\develop\StickyNote\bin\Debug\net8.0-windows\StickyNote.exe
+D:\develop\StickyNote\bin\Debug\net8.0-windows\StickyNote.deps.json
+D:\develop\StickyNote\bin\Debug\net8.0-windows\StickyNote.runtimeconfig.json
+D:\develop\StickyNote\bin\Debug\net8.0-windows\StickyNote.dll
+D:\develop\StickyNote\bin\Debug\net8.0-windows\StickyNote.pdb
+D:\develop\StickyNote\obj\Debug\net8.0-windows\StickyNote.GeneratedMSBuildEditorConfig.editorconfig
+D:\develop\StickyNote\obj\Debug\net8.0-windows\StickyNote.AssemblyInfoInputs.cache
+D:\develop\StickyNote\obj\Debug\net8.0-windows\StickyNote.AssemblyInfo.cs
+D:\develop\StickyNote\obj\Debug\net8.0-windows\StickyNote.csproj.CoreCompileInputs.cache
+D:\develop\StickyNote\obj\Debug\net8.0-windows\StickyNote.dll
+D:\develop\StickyNote\obj\Debug\net8.0-windows\refint\StickyNote.dll
+D:\develop\StickyNote\obj\Debug\net8.0-windows\StickyNote.pdb
+D:\develop\StickyNote\obj\Debug\net8.0-windows\StickyNote.genruntimeconfig.cache
+D:\develop\StickyNote\obj\Debug\net8.0-windows\ref\StickyNote.dll

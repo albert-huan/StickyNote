@@ -11,6 +11,24 @@ namespace StickyNote
     {
         private Forms.NotifyIcon _tray;
         private HotkeyWindow _hotkeyWin;
+        private System.Windows.Threading.DispatcherTimer _flushTimer;
+
+        [DllImport("kernel32.dll")]
+        private static extern bool SetProcessWorkingSetSize(IntPtr process, int minSize, int maxSize);
+
+        public static void FlushMemory()
+        {
+            try
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                {
+                    SetProcessWorkingSetSize(System.Diagnostics.Process.GetCurrentProcess().Handle, -1, -1);
+                }
+            }
+            catch { }
+        }
         private void Application_Startup(object sender, StartupEventArgs e)
         {
             try
@@ -152,6 +170,10 @@ namespace StickyNote
             _hotkeyWin = new HotkeyWindow(this);
             _hotkeyWin.RegisterCtrlAltN();
             _hotkeyWin.RegisterCtrlAltF();
+
+            _flushTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+            _flushTimer.Tick += (s, ev) => { FlushMemory(); };
+            _flushTimer.Start();
         }
 
         private void ShowAllWindows()
@@ -170,6 +192,7 @@ namespace StickyNote
             {
                 w.Hide();
             }
+            FlushMemory();
         }
 
         private void TileWindows()
