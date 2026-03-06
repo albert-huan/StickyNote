@@ -1,0 +1,39 @@
+# ==================================
+# Visual Studio / .NET
+# ==================================
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+# ==================================
+# Project Specific Publish & Build
+# ==================================
+publish-slim/
+publish-sc/
+.publish/
+bin/
+obj/
+
+# ==================================
+# Inno Setup Outputs
+# ==================================
+installer/out/
+*.isv
+
+# ==================================
+# Rider / Resharper
+# ==================================
+.idea/
+*.sln.iml
+
+# ==================================
+# Temporary files & Backups
+# ==================================
+*.bak
+*.tmp
+*.log
