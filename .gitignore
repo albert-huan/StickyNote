@@ -9,6 +9,8 @@
 *.userosscache
 *.sln.docstates
 *.suo
+bin/
+obj/
 
 # ==================================
 # Project Specific Publish & Build
@@ -16,8 +18,7 @@
 publish-slim/
 publish-sc/
 .publish/
-bin/
-obj/
+
 
 # ==================================
 # Inno Setup Outputs
