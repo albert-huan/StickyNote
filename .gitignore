@@ -38,3 +38,10 @@ installer/out/
 *.bak
 *.tmp
 *.log
+gitlog.txt
+old.txt
+diff_all.txt
+diff.txt
+diff_all_clean.txt
+diff2_utf8.txt
+diff2.txt

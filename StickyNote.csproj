@@ -7,9 +7,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <Version>1.5.0</Version>
-    <FileVersion>1.5.0</FileVersion>
-    <AssemblyVersion>1.5.0</AssemblyVersion>
+    <Version>1.6.0</Version>
+    <FileVersion>1.6.0</FileVersion>
+    <AssemblyVersion>1.6.0</AssemblyVersion>
 
     <!-- 工作集优化：使用 Workstation GC，最小化内存驻留 -->
     <ServerGarbageCollection>false</ServerGarbageCollection>

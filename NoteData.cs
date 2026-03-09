@@ -8,15 +8,15 @@ namespace StickyNote
 {
     public class NoteData
     {
-        public required string Id { get; set; }
+        public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Title { get; set; } = "";
-        public required string Content { get; set; }   // RTF 格式
+        public string Content { get; set; } = "";   // RTF 格式
         public double Left { get; set; }
         public double Top { get; set; }
         public double Width { get; set; }
         public double Height { get; set; }
         public bool IsTopmost { get; set; }
-        public required string ColorHex { get; set; }
+        public string ColorHex { get; set; } = "#E3C887";
         public double Opacity { get; set; } = 1.0;
         public float FontSize { get; set; } = 13f;
         public bool IsBold { get; set; }

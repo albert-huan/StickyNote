@@ -1,5 +1,5 @@
 #define AppName "StickyNote"
-#define AppVersion "1.5.0"
+#define AppVersion "1.6.0"  
 #define AppPublisher "StickyNote"
 #define AppURL "https://example.invalid/StickyNote"
 #define AppExe "StickyNote.exe"
@@ -9,13 +9,13 @@
 #endif
 #if Arch == 'x64'
   #define BuildDir "..\\publish-slim\\win-x64"
-  #define OutputBase "StickyNote_Setup_Slim_x64"
+  #define OutputBase "StickyNote_Setup_Slim_x64_" + GetDateTimeString('yyyymmdd', '', '')
   #define DefaultDir "{pf}\\StickyNote"
   #define ArchitecturesAllowed "x64"
   #define InstallIn64Bit "x64"
 #else
   #define BuildDir "..\\publish-slim\\win-x86"
-  #define OutputBase "StickyNote_Setup_Slim_x86"
+  #define OutputBase "StickyNote_Setup_Slim_x86_" + GetDateTimeString('yyyymmdd', '', '')
   #define DefaultDir "{pf32}\\StickyNote"
   #define ArchitecturesAllowed "x86"
   #define InstallIn64Bit ""

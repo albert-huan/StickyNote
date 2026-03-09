@@ -53,38 +53,9 @@ jobs:
           path: |
             installer/out/*.exe
 
-      - name: Create GitHub Release
+      - name: Release
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref_name }}
-          release_name: StickyNote ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-
-      - name: Upload asset Slim x64
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: installer/out/StickyNote_Setup_Slim_x64.exe
-          asset_name: StickyNote_Setup_Slim_x64.exe
-          asset_content_type: application/octet-stream
-
-
-      - name: Upload asset Full x64
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: installer/out/StickyNote_Setup_x64.exe
-          asset_name: StickyNote_Setup_x64.exe
-          asset_content_type: application/octet-stream
-
+          name: StickyNote ${{ github.ref_name }}
+          files: installer/out/*.exe

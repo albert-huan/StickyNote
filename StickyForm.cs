@@ -93,6 +93,7 @@ namespace StickyNote
 
             this.FormBorderStyle = FormBorderStyle.None;
             this.BackColor       = Color.FromArgb(0xE8, 0xD0, 0x96);
+            this.Padding         = new Padding(4);
 
             var s = NoteManager.Settings;
             if (s.WindowWidth > 100 && s.WindowHeight > 100)
@@ -382,7 +383,7 @@ namespace StickyNote
             del.Click += (s, e) => DeleteCurrentNote();
             menu.Items.Add(del);
             menu.Items.Add(new ToolStripSeparator());
-            Add("关于 StickyNote v1.5",  () => MessageBox.Show("StickyNote 便签\n版本: v1.5.0\n\n轻量级桌面便签，内存占用 ~20MB", "关于", MessageBoxButtons.OK, MessageBoxIcon.Information));
+            Add("关于 StickyNote v 1.6",  () => MessageBox.Show("StickyNote 便签\n版本: v1.6.0\n\n轻量级桌面便签，内存占用 ~20MB", "关于", MessageBoxButtons.OK, MessageBoxIcon.Information));
             return menu;
         }
 
@@ -479,7 +480,7 @@ namespace StickyNote
             if (_loading || _current == null) return;
             try
             {
-                _current.Content = _rtb.Rtf;
+                _current.Content = _rtb.Rtf ?? "";
                 _current.FontSize = _rtb.Font.Size;
                 // P1: 更新预览缓存
                 _current.PlainPreview = TabPanel.BuildPreview(_current.Content);
@@ -878,9 +879,7 @@ namespace StickyNote
         {
             if (m.Msg == WM_NCHITTEST && this.WindowState == FormWindowState.Normal)
             {
-                int x = (int)m.LParam & 0xFFFF;
-                int y = (int)m.LParam >> 16;
-                var pt = PointToClient(new Point(x, y));
+                var pt = PointToClient(Cursor.Position);
                 int r = RESIZE_BORDER;
                 int w = Width, h = Height;
 
