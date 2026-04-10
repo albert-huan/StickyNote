@@ -16,6 +16,8 @@ namespace StickyNote
         public event EventHandler<NoteData>? TabSelected;
         public event EventHandler<NoteData>? TabDeleteRequested;
         public event EventHandler<NoteData>? TabRenameRequested;
+        public event EventHandler<NoteData>? TabMoveUpRequested;
+        public event EventHandler<NoteData>? TabMoveDownRequested;
         public event EventHandler? NewTabRequested;
 
         // ── 数据 ──────────────────────────────────────────────────
@@ -25,7 +27,7 @@ namespace StickyNote
         private int _scrollOffset = 0;
         private const int ItemH = 52;
         private const int FooterH = 36;
-        private Color _baseColor = ColorTranslator.FromHtml("#E8D096");
+        private Color _baseColor = ColorTranslator.FromHtml("#DCEDC8");
 
         // ── 动画 ──────────────────────────────────────────────────
         private System.Windows.Forms.Timer _animTimer;
@@ -204,18 +206,27 @@ namespace StickyNote
             {
                 _selected = note;
                 Invalidate();
-                ShowContextMenu(note, e.Location);
+                ShowContextMenu(note, idx, e.Location);
             }
         }
 
-        private void ShowContextMenu(NoteData note, Point pt)
+        private void ShowContextMenu(NoteData note, int index, Point pt)
         {
             var menu = new ContextMenuStrip();
             var rename = new ToolStripMenuItem("重命名");
+            var moveUp = new ToolStripMenuItem("上移") { Enabled = index > 0 };
+            var moveDown = new ToolStripMenuItem("下移") { Enabled = index < _notes.Count - 1 };
             var delete = new ToolStripMenuItem("删除") { ForeColor = Color.Crimson };
+
             rename.Click += (s, e) => TabRenameRequested?.Invoke(this, note);
+            moveUp.Click += (s, e) => TabMoveUpRequested?.Invoke(this, note);
+            moveDown.Click += (s, e) => TabMoveDownRequested?.Invoke(this, note);
             delete.Click += (s, e) => TabDeleteRequested?.Invoke(this, note);
+
             menu.Items.Add(rename);
+            menu.Items.Add(moveUp);
+            menu.Items.Add(moveDown);
+            menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(delete);
             menu.Show(this, pt);
         }

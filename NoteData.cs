@@ -16,7 +16,7 @@ namespace StickyNote
         public double Width { get; set; }
         public double Height { get; set; }
         public bool IsTopmost { get; set; }
-        public string ColorHex { get; set; } = "#E3C887";
+        public string ColorHex { get; set; } = "#DCEDC8";
         public double Opacity { get; set; } = 1.0;
         public float FontSize { get; set; } = 13f;
         public bool IsBold { get; set; }

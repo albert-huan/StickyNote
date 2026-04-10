@@ -55,7 +55,7 @@ namespace StickyNote
         private NoteData? _current;
         private bool _loading = false;
         private bool _isTopmost = false;
-        private Color _baseColor = ColorTranslator.FromHtml("#E8D096");
+        private Color _baseColor = ColorTranslator.FromHtml("#DCEDC8");
 
         // 色彩方案
         private static readonly (string Name, string Hex)[] ColorSchemes =
@@ -92,7 +92,7 @@ namespace StickyNote
             NoteManager.LoadSettings();
 
             this.FormBorderStyle = FormBorderStyle.None;
-            this.BackColor       = Color.FromArgb(0xE8, 0xD0, 0x96);
+            this.BackColor       = ColorTranslator.FromHtml("#DCEDC8");
             this.Padding         = new Padding(4);
 
             var s = NoteManager.Settings;
@@ -176,6 +176,8 @@ namespace StickyNote
             _tabPanel.TabSelected      += OnTabSelected;
             _tabPanel.TabDeleteRequested += OnTabDeleteRequested;
             _tabPanel.TabRenameRequested += OnTabRenameRequested;
+            _tabPanel.TabMoveUpRequested += OnTabMoveUpRequested;
+            _tabPanel.TabMoveDownRequested += OnTabMoveDownRequested;
             _tabPanel.NewTabRequested  += (s, e) => CreateNewTab();
 
             // ── 分割条 ──────────────────────────────────────────────
@@ -191,7 +193,7 @@ namespace StickyNote
             splitter.MouseUp    += (s, e) => { _splitterDragging = false; splitter.Capture = false; SaveWindowBounds(); };
 
             // ── 内容区 ──────────────────────────────────────────────
-            _contentArea = new Panel { Dock = DockStyle.Fill, BackColor = ColorTranslator.FromHtml("#E8D096") };
+            _contentArea = new Panel { Dock = DockStyle.Fill, BackColor = ColorTranslator.FromHtml("#DCEDC8") };
             _contentArea.Paint += ContentArea_Paint;
 
             // ── RichTextBox ─────────────────────────────────────────
@@ -199,7 +201,7 @@ namespace StickyNote
             {
                 Dock        = DockStyle.Fill,
                 BorderStyle = BorderStyle.None,
-                BackColor   = ColorTranslator.FromHtml("#E8D096"),  // WinForms RTB 不支持透明
+                BackColor   = ColorTranslator.FromHtml("#DCEDC8"),  // WinForms RTB 不支持透明
                 Font        = new Font("Microsoft YaHei", 13f),
                 ForeColor   = ColorTranslator.FromHtml("#3E2723"),
                 ScrollBars  = RichTextBoxScrollBars.Vertical,
@@ -313,7 +315,7 @@ namespace StickyNote
                 Height    = 32,
                 // 使用实色，不用半透明（WinForms 不支持 alpha Panel 背景）
                 // 颜色在 ApplyColorInternal 时动态更新
-                BackColor = Darken(ColorTranslator.FromHtml("#E8D096"), 0.10f)
+                BackColor = Darken(ColorTranslator.FromHtml("#DCEDC8"), 0.10f)
             };
             _toolbar = bar; // 保存引用以便后续换色
 
@@ -426,7 +428,7 @@ namespace StickyNote
                 Height   = this.Height,
                 Left     = this.Left,
                 Top      = this.Top,
-                ColorHex = "#E3C887",
+                ColorHex = "#DCEDC8",
                 Opacity  = 1.0,
                 FontSize = 13f,
                 Alignment = "Left"
@@ -530,6 +532,24 @@ namespace StickyNote
             _tabPanel.SetNotes(_notes, _current);
         }
 
+        private void OnTabMoveUpRequested(object? s, NoteData note) => MoveNote(note, -1);
+        private void OnTabMoveDownRequested(object? s, NoteData note) => MoveNote(note, +1);
+
+        private void MoveNote(NoteData note, int delta)
+        {
+            int idx = _notes.FindIndex(n => n.Id == note.Id);
+            if (idx < 0) return;
+
+            int newIdx = idx + delta;
+            if (newIdx < 0 || newIdx >= _notes.Count) return;
+
+            _notes.RemoveAt(idx);
+            _notes.Insert(newIdx, note);
+
+            NoteManager.SaveNotes();
+            _tabPanel.SetNotes(_notes, _current ?? note);
+        }
+
         private void RtbTextChanged(object? s, EventArgs e)
         {
             if (!_loading) SaveCurrentNote();
@@ -542,6 +562,19 @@ namespace StickyNote
             if (e.Control && e.KeyCode == Keys.T) { ToggleTopmost(); e.Handled = true; }
             if (e.Control && e.KeyCode == Keys.E) { Export(); e.Handled = true; }
             if (e.Control && e.KeyCode == Keys.W) { this.WindowState = FormWindowState.Minimized; e.Handled = true; }
+
+            // 已完成待办行（☑）按回车时，重置新行输入样式，避免继续灰色删除线
+            if (e.KeyCode == Keys.Enter && !e.Control && !e.Alt && !_rtb.ReadOnly && IsCaretOnCompletedTodoLine())
+            {
+                e.SuppressKeyPress = true;
+                e.Handled = true;
+
+                var align = _rtb.SelectionAlignment;
+                _rtb.SelectedText = Environment.NewLine;
+                _rtb.SelectionColor = GetNormalTextColor();
+                _rtb.SelectionFont = new Font(_rtb.Font, FontStyle.Regular);
+                _rtb.SelectionAlignment = align;
+            }
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
@@ -676,20 +709,68 @@ namespace StickyNote
         {
             _rtb.SelectionAlignment = align;
         }
+
+        private Color GetNormalTextColor() => _rtb.ForeColor;
+
+        private int GetLineContentLength(int lineStart, int lineLen)
+        {
+            int len = Math.Max(0, lineLen);
+            while (len > 0)
+            {
+                char ch = _rtb.Text[lineStart + len - 1];
+                if (ch == '\r' || ch == '\n') len--;
+                else break;
+            }
+            return len;
+        }
+
+        private bool IsCaretOnCompletedTodoLine()
+        {
+            if (_rtb.SelectionLength > 0) return false;
+
+            int lineIdx = _rtb.GetLineFromCharIndex(_rtb.SelectionStart);
+            if (lineIdx < 0 || lineIdx >= _rtb.Lines.Length) return false;
+
+            string lineText = _rtb.Lines[lineIdx] ?? string.Empty;
+            return lineText.StartsWith("☑ ");
+        }
+
         private void InsertTodo()
         {
-            int pos = _rtb.SelectionStart;
-            int lineIdx = _rtb.GetLineFromCharIndex(pos);
-            int lineStart = _rtb.GetFirstCharIndexFromLine(lineIdx);
-            string lineText = lineIdx < _rtb.Lines.Length ? _rtb.Lines[lineIdx] : "";
-            if (!lineText.StartsWith("☐ ") && !lineText.StartsWith("☑ "))
+            int oldStart = _rtb.SelectionStart;
+            int oldLen = _rtb.SelectionLength;
+
+            int startLine = _rtb.GetLineFromCharIndex(oldStart);
+            int endChar = oldLen > 0 ? Math.Max(oldStart, oldStart + oldLen - 1) : oldStart;
+            int endLine = _rtb.GetLineFromCharIndex(endChar);
+
+            _rtb.SuspendLayout();
+            try
             {
-                _rtb.SelectionStart = lineStart;
+                int insertedBeforeCaret = 0;
+                for (int i = startLine; i <= endLine; i++)
+                {
+                    int lineStart = _rtb.GetFirstCharIndexFromLine(i);
+                    if (lineStart < 0) continue;
+
+                    string lineText = i < _rtb.Lines.Length ? _rtb.Lines[i] : "";
+                    if (lineText.StartsWith("☐ ") || lineText.StartsWith("☑ ")) continue;
+
+                    _rtb.SelectionStart = lineStart;
+                    _rtb.SelectionLength = 0;
+                    _rtb.SelectionColor = GetNormalTextColor();
+                    _rtb.SelectionFont = new Font(_rtb.Font, FontStyle.Regular);
+                    _rtb.SelectedText = "☐ ";
+
+                    if (lineStart <= oldStart) insertedBeforeCaret += 2;
+                }
+
+                _rtb.SelectionStart = Math.Min(_rtb.TextLength, oldStart + insertedBeforeCaret);
                 _rtb.SelectionLength = 0;
-                // 用正常颜色插入
-                _rtb.SelectionColor = ColorTranslator.FromHtml("#3E2723");
-                _rtb.SelectionFont = new Font(_rtb.Font, FontStyle.Regular);
-                _rtb.SelectedText = "☐ ";
+            }
+            finally
+            {
+                _rtb.ResumeLayout();
             }
         }
 
@@ -739,14 +820,15 @@ namespace StickyNote
                     // 改为已完成 ☑
                     _rtb.SelectionStart = targetIndex;
                     _rtb.SelectionLength = 1;
-                    _rtb.SelectionColor = ColorTranslator.FromHtml("#3E2723");
+                    _rtb.SelectionColor = GetNormalTextColor();
                     _rtb.SelectedText = "☑";
                     
-                    // 整行变灰并加删除线（跳过框和空格）
-                    if (lineLen > 2)
+                    // 整行变灰并加删除线（跳过框和空格，且不包含换行符）
+                    int lineContentLen = GetLineContentLength(lineStart, lineLen);
+                    if (lineContentLen > 2)
                     {
-                        _rtb.SelectionStart = lineStart + 2; 
-                        _rtb.SelectionLength = lineLen - 2;
+                        _rtb.SelectionStart = lineStart + 2;
+                        _rtb.SelectionLength = lineContentLen - 2;
                         _rtb.SelectionColor = Color.Gray;
                         _rtb.SelectionFont = new Font(_rtb.Font, FontStyle.Strikeout);
                     }
@@ -756,15 +838,16 @@ namespace StickyNote
                     // 改为未完成 ☐
                     _rtb.SelectionStart = targetIndex;
                     _rtb.SelectionLength = 1;
-                    _rtb.SelectionColor = ColorTranslator.FromHtml("#3E2723");
+                    _rtb.SelectionColor = GetNormalTextColor();
                     _rtb.SelectedText = "☐";
 
-                    // 整行恢复正常
-                    if (lineLen > 2)
+                    // 整行恢复正常（不包含换行符）
+                    int lineContentLen = GetLineContentLength(lineStart, lineLen);
+                    if (lineContentLen > 2)
                     {
                         _rtb.SelectionStart = lineStart + 2;
-                        _rtb.SelectionLength = lineLen - 2;
-                        _rtb.SelectionColor = ColorTranslator.FromHtml("#3E2723");
+                        _rtb.SelectionLength = lineContentLen - 2;
+                        _rtb.SelectionColor = GetNormalTextColor();
                         _rtb.SelectionFont = new Font(_rtb.Font, FontStyle.Regular);
                     }
                 }
