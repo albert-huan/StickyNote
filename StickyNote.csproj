@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="app.ico" />
+    <Compile Remove="MainWindow.xaml.cs" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">

@@ -47,6 +47,13 @@ namespace StickyNote
         private Panel _toolbar = null!;    // 底部格式工具栏
         private Panel _titleBar = null!;   // 顶部标题栏（自绘）
         private Panel _contentArea = null!; // 右侧内容区
+        private readonly List<ToolIconButton> _toolbarButtons = new();
+
+        private const int ToolbarButtonWidth = 26;
+        private const int ToolbarButtonHeight = 28;
+        private const int ToolbarButtonGap = 2;
+        private const int ToolbarPaddingX = 4;
+        private const int ToolbarPaddingY = 2;
 
         // ══════════════════════════════════════════════════════════════
         //  状态
@@ -113,6 +120,8 @@ namespace StickyNote
             this.DoubleBuffered  = true;
 
             BuildLayout();
+            ApplyEditorDisplaySettings();
+            ReflowToolbar();
             LoadNotes();
             SetupTimers();
             ApplyDwmShadow();
@@ -195,6 +204,7 @@ namespace StickyNote
             // ── 内容区 ──────────────────────────────────────────────
             _contentArea = new Panel { Dock = DockStyle.Fill, BackColor = ColorTranslator.FromHtml("#DCEDC8") };
             _contentArea.Paint += ContentArea_Paint;
+            _contentArea.Resize += (s, e) => ReflowToolbar();
 
             // ── RichTextBox ─────────────────────────────────────────
             _rtb = new RichTextBox
@@ -204,8 +214,8 @@ namespace StickyNote
                 BackColor   = ColorTranslator.FromHtml("#DCEDC8"),  // WinForms RTB 不支持透明
                 Font        = new Font("Microsoft YaHei", 13f),
                 ForeColor   = ColorTranslator.FromHtml("#3E2723"),
-                ScrollBars  = RichTextBoxScrollBars.Vertical,
-                WordWrap    = false,
+                ScrollBars  = RichTextBoxScrollBars.Both,
+                WordWrap    = true,
                 AcceptsTab  = true,
                 DetectUrls  = false,
                 Multiline   = true,
@@ -318,6 +328,7 @@ namespace StickyNote
                 BackColor = Darken(ColorTranslator.FromHtml("#DCEDC8"), 0.10f)
             };
             _toolbar = bar; // 保存引用以便后续换色
+            _toolbarButtons.Clear();
 
             // 工具按钮列表：(ToolTip, Action, DrawFunc)
             var btns = new (string tip, Action act, Action<Graphics, Rectangle> draw)[]
@@ -335,17 +346,74 @@ namespace StickyNote
                 ("——— 分隔线",          () => InsertSeparator(),       DrawSep),
             };
 
-            int x = 4;
             foreach (var (tip, act, draw) in btns)
             {
-                var btn = new ToolIconButton(draw) { Left = x, Top = 2, Width = 26, Height = 28 };
+                var btn = new ToolIconButton(draw)
+                {
+                    Width = ToolbarButtonWidth,
+                    Height = ToolbarButtonHeight
+                };
                 btn.ToolTipText = tip;
                 btn.Clicked += (s, e) => act();
                 bar.Controls.Add(btn);
-                x += 28;
+                _toolbarButtons.Add(btn);
             }
 
+            bar.Resize += (s, e) => ReflowToolbar();
+            ReflowToolbar();
             return bar;
+        }
+
+        private void ReflowToolbar()
+        {
+            if (_toolbar == null || _toolbarButtons.Count == 0)
+                return;
+
+            int availableWidth = Math.Max(1, _toolbar.ClientSize.Width - ToolbarPaddingX * 2);
+            int stepX = ToolbarButtonWidth + ToolbarButtonGap;
+            bool autoWrap = NoteManager.Settings.ToolbarAutoWrap;
+
+            int buttonsPerRow = autoWrap
+                ? Math.Max(1, availableWidth / stepX)
+                : Math.Max(1, _toolbarButtons.Count);
+
+            for (int i = 0; i < _toolbarButtons.Count; i++)
+            {
+                int row = i / buttonsPerRow;
+                int col = i % buttonsPerRow;
+
+                _toolbarButtons[i].Left = ToolbarPaddingX + col * stepX;
+                _toolbarButtons[i].Top = ToolbarPaddingY + row * (ToolbarButtonHeight + ToolbarPaddingY);
+            }
+
+            int rows = (int)Math.Ceiling(_toolbarButtons.Count / (double)buttonsPerRow);
+            int desiredHeight = ToolbarPaddingY + rows * (ToolbarButtonHeight + ToolbarPaddingY);
+            if (_toolbar.Height != desiredHeight)
+            {
+                _toolbar.Height = desiredHeight;
+                _contentArea?.Invalidate();
+            }
+        }
+
+        private static RichTextBoxScrollBars GetEditorScrollBars(bool showHorizontal, bool showVertical, bool wordWrap)
+        {
+            // WinForms RichTextBox 在启用自动换行时不会显示水平滚动
+            if (wordWrap)
+                return showVertical ? RichTextBoxScrollBars.Vertical : RichTextBoxScrollBars.None;
+
+            if (showHorizontal && showVertical) return RichTextBoxScrollBars.Both;
+            if (showHorizontal) return RichTextBoxScrollBars.Horizontal;
+            if (showVertical) return RichTextBoxScrollBars.Vertical;
+            return RichTextBoxScrollBars.None;
+        }
+
+        private void ApplyEditorDisplaySettings()
+        {
+            if (_rtb == null) return;
+
+            var s = NoteManager.Settings;
+            _rtb.WordWrap = s.EditorWordWrap;
+            _rtb.ScrollBars = GetEditorScrollBars(s.ShowHorizontalScrollBar, s.ShowVerticalScrollBar, s.EditorWordWrap);
         }
 
         // ══════════════════════════════════════════════════════════════
@@ -380,12 +448,13 @@ namespace StickyNote
             Add("导出为文本",  () => Export());
             Add("锁定内容",    () => { _rtb.ReadOnly = !_rtb.ReadOnly; ShowStatus(_rtb.ReadOnly ? "已锁定" : "已解锁"); });
             menu.Items.Add(new ToolStripSeparator());
+            Add("设置...",     () => ShowSettingsDialog());
+            Add("关于本软件",  () => ShowAboutDialog());
+            menu.Items.Add(new ToolStripSeparator());
             Add("清空内容",    () => { if (Confirm("确定清空？")) _rtb.Clear(); });
             var del = new ToolStripMenuItem("删除此便签 (Ctrl+D)") { ForeColor = Color.Crimson };
             del.Click += (s, e) => DeleteCurrentNote();
             menu.Items.Add(del);
-            menu.Items.Add(new ToolStripSeparator());
-            Add("关于 StickyNote v 1.6",  () => MessageBox.Show("StickyNote 便签\n版本: v1.6.0\n\n轻量级桌面便签，内存占用 ~20MB", "关于", MessageBoxButtons.OK, MessageBoxIcon.Information));
             return menu;
         }
 
@@ -933,6 +1002,97 @@ namespace StickyNote
             dlg.AcceptButton = ok; dlg.CancelButton = cancel;
             tb.SelectAll();
             return dlg.ShowDialog(this) == DialogResult.OK ? tb.Text : null;
+        }
+
+        public void ShowSettings() => ShowSettingsDialog();
+        public void ShowAbout() => ShowAboutDialog();
+
+        private void ShowSettingsDialog()
+        {
+            var s = NoteManager.Settings;
+
+            using var dlg = new Form
+            {
+                Text = "设置",
+                Width = 520,
+                Height = 280,
+                MinimumSize = new Size(420, 220),
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false,
+                Font = this.Font
+            };
+
+            var tips = new Label
+            {
+                Dock = DockStyle.Top,
+                Height = 42,
+                Padding = new Padding(10, 10, 10, 0),
+                ForeColor = Color.FromArgb(120, 62, 39, 35),
+                Text = "提示：当启用“自动换行”时，水平滚动条会被自动忽略。"
+            };
+
+            var optionsPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10, 8, 10, 8),
+                AutoScroll = true,
+                WrapContents = true,
+                FlowDirection = FlowDirection.LeftToRight
+            };
+
+            var chkWrap = new CheckBox { AutoSize = true, Margin = new Padding(6), Text = "编辑区自动换行", Checked = s.EditorWordWrap };
+            var chkHScroll = new CheckBox { AutoSize = true, Margin = new Padding(6), Text = "显示水平滚动条", Checked = s.ShowHorizontalScrollBar };
+            var chkVScroll = new CheckBox { AutoSize = true, Margin = new Padding(6), Text = "显示垂直滚动条", Checked = s.ShowVerticalScrollBar };
+            var chkToolbarWrap = new CheckBox { AutoSize = true, Margin = new Padding(6), Text = "底部工具按钮随窗口宽度自动换行", Checked = s.ToolbarAutoWrap };
+
+            void SyncOptionState()
+            {
+                chkHScroll.Enabled = !chkWrap.Checked;
+            }
+
+            chkWrap.CheckedChanged += (sender, args) => SyncOptionState();
+            SyncOptionState();
+
+            optionsPanel.Controls.Add(chkWrap);
+            optionsPanel.Controls.Add(chkHScroll);
+            optionsPanel.Controls.Add(chkVScroll);
+            optionsPanel.Controls.Add(chkToolbarWrap);
+
+            var actionPanel = new Panel { Dock = DockStyle.Bottom, Height = 48 };
+            var ok = new Button { Text = "确定", Width = 80, Height = 30, Left = dlg.ClientSize.Width - 180, Top = 9, Anchor = AnchorStyles.Right | AnchorStyles.Top, DialogResult = DialogResult.OK };
+            var cancel = new Button { Text = "取消", Width = 80, Height = 30, Left = dlg.ClientSize.Width - 92, Top = 9, Anchor = AnchorStyles.Right | AnchorStyles.Top, DialogResult = DialogResult.Cancel };
+            actionPanel.Controls.Add(ok);
+            actionPanel.Controls.Add(cancel);
+
+            dlg.Controls.Add(optionsPanel);
+            dlg.Controls.Add(actionPanel);
+            dlg.Controls.Add(tips);
+            dlg.AcceptButton = ok;
+            dlg.CancelButton = cancel;
+
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+            s.EditorWordWrap = chkWrap.Checked;
+            s.ShowHorizontalScrollBar = chkHScroll.Checked;
+            s.ShowVerticalScrollBar = chkVScroll.Checked;
+            s.ToolbarAutoWrap = chkToolbarWrap.Checked;
+
+            NoteManager.SaveSettings();
+            ApplyEditorDisplaySettings();
+            ReflowToolbar();
+            ShowStatus("设置已应用");
+        }
+
+        private void ShowAboutDialog()
+        {
+            var version = Application.ProductVersion;
+            MessageBox.Show(
+                $"StickyNote 便签\n版本: v{version}\n\n主要能力：\n- 富文本编辑与标签管理\n- 托盘常驻与全局快捷键\n- 自动保存与轻量内存占用",
+                "关于本软件",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
 
         // ══════════════════════════════════════════════════════════════

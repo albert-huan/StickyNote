@@ -41,6 +41,14 @@ namespace StickyNote
         public int WindowWidth  { get; set; } = 520;
         public int WindowHeight { get; set; } = 340;
         public int SplitterWidth { get; set; } = 110;
+
+        // 编辑区显示设置
+        public bool EditorWordWrap { get; set; } = false;
+        public bool ShowHorizontalScrollBar { get; set; } = true;
+        public bool ShowVerticalScrollBar { get; set; } = true;
+
+        // 底部工具栏是否随窗口宽度自动换行
+        public bool ToolbarAutoWrap { get; set; } = true;
     }
 
     public static class NoteManager

@@ -141,6 +141,8 @@ namespace StickyNote
             menu.Items.Add(new ToolStripSeparator());
             MenuItem(menu, "显示主窗口",     () => ShowMain());
             MenuItem(menu, "隐藏主窗口",     () => { _mainForm.Hide(); TrimMemory(); });
+            MenuItem(menu, "设置...",        () => { ShowMain(); _mainForm.ShowSettings(); });
+            MenuItem(menu, "关于本软件",      () => _mainForm.ShowAbout());
             menu.Items.Add(new ToolStripSeparator());
 
             // 开机自启
