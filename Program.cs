@@ -53,6 +53,8 @@ namespace StickyNote
 
         public void Run()
         {
+            NoteManager.LoadSettings();
+
             _mainForm   = new StickyForm();
             _hotkeyForm = new HotkeyForm();
             _hotkeyForm.HotkeyPressed += OnGlobalHotkey;
@@ -83,7 +85,18 @@ namespace StickyNote
             _memTimer.Tick += (s, e) => TrimMemory();
             _memTimer.Start();
 
-            _mainForm.Show();
+            if (NoteManager.Settings.StartMinimizedToTray)
+            {
+                _mainForm.WindowState = FormWindowState.Minimized;
+                _mainForm.ShowInTaskbar = false;
+                _mainForm.Hide();
+            }
+            else
+            {
+                _mainForm.ShowInTaskbar = true;
+                _mainForm.Show();
+            }
+
             Application.Run(_mainForm);
         }
 
@@ -140,7 +153,7 @@ namespace StickyNote
             });
             menu.Items.Add(new ToolStripSeparator());
             MenuItem(menu, "显示主窗口",     () => ShowMain());
-            MenuItem(menu, "隐藏主窗口",     () => { _mainForm.Hide(); TrimMemory(); });
+            MenuItem(menu, "隐藏主窗口",     () => { _mainForm.ShowInTaskbar = false; _mainForm.Hide(); TrimMemory(); });
             MenuItem(menu, "设置...",        () => { ShowMain(); _mainForm.ShowSettings(); });
             MenuItem(menu, "关于本软件",      () => _mainForm.ShowAbout());
             menu.Items.Add(new ToolStripSeparator());
@@ -186,6 +199,7 @@ namespace StickyNote
 
         private void ShowMain()
         {
+            _mainForm.ShowInTaskbar = true;
             _mainForm.Show();
             _mainForm.WindowState = FormWindowState.Normal;
             _mainForm.Activate();

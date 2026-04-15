@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace StickyNote
@@ -55,10 +56,14 @@ namespace StickyNote
                 foreach (var n in notes)
                 {
                     string plain = GetPlain(n.Content);
+                    string tags = BuildTagsText(n);
                     if (string.IsNullOrEmpty(q)
                         || n.Title.Contains(q, StringComparison.OrdinalIgnoreCase)
-                        || plain.Contains(q, StringComparison.OrdinalIgnoreCase))
+                        || plain.Contains(q, StringComparison.OrdinalIgnoreCase)
+                        || tags.Contains(q, StringComparison.OrdinalIgnoreCase))
+                    {
                         results.Add(n);
+                    }
                 }
                 listBox.BeginUpdate();
                 listBox.Items.Clear();
@@ -93,9 +98,11 @@ namespace StickyNote
 
                 // 预览
                 string preview = GetPreviewLine(GetPlain(note.Content));
+                string tagsText = BuildTagsText(note);
+                string summary = string.IsNullOrEmpty(tagsText) ? preview : $"{preview}   #{tagsText}";
                 using (var pf = new Font("Microsoft YaHei", 8f))
                 using (var pb = new SolidBrush(Color.FromArgb(130, 93, 64, 55)))
-                    g.DrawString(preview, pf, pb, e.Bounds.Left + 12, e.Bounds.Top + 23);
+                    g.DrawString(summary, pf, pb, e.Bounds.Left + 12, e.Bounds.Top + 23);
 
                 // 分隔线
                 g.DrawLine(new Pen(Color.FromArgb(30, 93, 64, 55)), e.Bounds.Left + 8, e.Bounds.Bottom - 1, e.Bounds.Right - 8, e.Bounds.Bottom - 1);
@@ -139,6 +146,12 @@ namespace StickyNote
             string preview = lines.Length > 1 ? lines[1] : "";
             if (preview.Length > 50) preview = preview[..50] + "…";
             return preview;
+        }
+
+        private static string BuildTagsText(NoteData note)
+        {
+            if (note.Tags == null || note.Tags.Count == 0) return "";
+            return string.Join(" ", note.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()));
         }
 
         private static Color TryParse(string hex, Color fallback)
